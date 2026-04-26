@@ -1,0 +1,122 @@
+{
+  "1": {
+    "nombre": "Perfil 1",
+    "chat_id": "",
+    "telefono": "",
+    "codigo": "",
+    "ubicacion": "",
+    "texto": "",
+    "estado": "ACTIVA",
+    "foto_modelo": "https://picsum.photos/400/260",
+    "foto_pagina": "https://picsum.photos/420/280",
+    "historial_fotos": [],
+    "ultima_hora": "4/16/2026, 10:45:34 PM",
+    "proximo_post": "16m 0s",
+    "proximo_post_ts": 1776398494460,
+    "fin_plan": "7 días",
+    "ultima_accion": "Publicado con éxito",
+    "ultimo_evento": {
+      "tipo": "publicado",
+      "hora": "4/16/2026, 10:45:34 PM"
+    },
+    "bump_hoy": 1,
+    "bump_total": 1,
+    "bump_fecha": "2026-04-17"
+  },
+  "3": {
+    "nombre": "Perfil 3",
+    "chat_id": "",
+    "telefono": "",
+    "codigo": "",
+    "ubicacion": "",
+    "texto": "",
+    "estado": "ACTIVA",
+    "foto_modelo": "https://picsum.photos/400/260",
+    "foto_pagina": "https://picsum.photos/420/280",
+    "historial_fotos": [],
+    "ultima_hora": "4/16/2026, 10:46:41 PM",
+    "proximo_post": "16m 0s",
+    "proximo_post_ts": 1776398561413,
+    "fin_plan": "7 días",
+    "ultima_accion": "Publicado con éxito",
+    "ultimo_evento": {
+      "tipo": "publicado",
+      "hora": "4/16/2026, 10:46:41 PM"
+    },
+    "bump_hoy": 1,
+    "bump_total": 1,
+    "bump_fecha": "2026-04-17"
+  },
+  "4": {
+    "nombre": "Perfil 4",
+    "chat_id": "",
+    "telefono": "",
+    "codigo": "",
+    "ubicacion": "",
+    "texto": "",
+    "estado": "ACTIVA",
+    "foto_modelo": "https://picsum.photos/400/260",
+    "foto_pagina": "https://picsum.photos/420/280",
+    "historial_fotos": [],
+    "ultima_hora": "4/16/2026, 10:47:41 PM",
+    "proximo_post": "16m 0s",
+    "proximo_post_ts": 1776398621126,
+    "fin_plan": "7 días",
+    "ultima_accion": "Publicado con éxito",
+    "ultimo_evento": {
+      "tipo": "publicado",
+      "hora": "4/16/2026, 10:47:41 PM"
+    },
+    "bump_hoy": 1,
+    "bump_total": 1,
+    "bump_fecha": "2026-04-17"
+  },
+  "6": {
+    "nombre": "Perfil 6",
+    "chat_id": "",
+    "telefono": "",
+    "codigo": "",
+    "ubicacion": "",
+    "texto": "",
+    "estado": "ACTIVA",
+    "foto_modelo": "https://picsum.photos/400/260",
+    "foto_pagina": "https://picsum.photos/420/280",
+    "historial_fotos": [],
+    "ultima_hora": "4/16/2026, 10:48:40 PM",
+    "proximo_post": "16m 0s",
+    "proximo_post_ts": 1776398680458,
+    "fin_plan": "7 días",
+    "ultima_accion": "Publicado con éxito",
+    "ultimo_evento": {
+      "tipo": "publicado",
+      "hora": "4/16/2026, 10:48:40 PM"
+    },
+    "bump_hoy": 1,
+    "bump_total": 1,
+    "bump_fecha": "2026-04-17"
+  },
+  "11": {
+    "nombre": "Perfil 11",
+    "chat_id": "",
+    "telefono": "",
+    "codigo": "",
+    "ubicacion": "",
+    "texto": "",
+    "estado": "ACTIVA",
+    "foto_modelo": "https://picsum.photos/400/260",
+    "foto_pagina": "https://picsum.photos/420/280",
+    "historial_fotos": [],
+    "ultima_hora": "16/4/2026, 10:35:01 p. m.",
+    "proximo_post": "16m 0s",
+    "proximo_post_ts": 1776394192259,
+    "fin_plan": "7 días",
+    "ultima_accion": "Reanudado globalmente",
+    "ultimo_evento": {
+      "tipo": "publicado",
+      "hora": "4/16/2026, 9:33:52 PM"
+    },
+    "bump_hoy": 7,
+    "bump_total": 7,
+    "bump_fecha": "2026-04-17"
+  }
+}
