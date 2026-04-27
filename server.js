@@ -15,6 +15,7 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
+// CAMBIA ESTAS 4 COSAS
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const SUPPORT_URL = 'https://t.me/tu_soporte';
