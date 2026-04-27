@@ -423,7 +423,7 @@ async function enviarEstadoPerfil(id) {
   const perfil = data[id];
   if (!perfil) return;
 
-  const caption = `🔥 PANEL PRO 🔥
+  const caption = `🔥 jean carlos BOT 🔥
 
 Perfil: ${perfil.nombre}
 📞 Teléfono: ${perfil.telefono}
