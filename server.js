@@ -1176,7 +1176,7 @@ async function cicloPrincipal() {
 // =========================
 // START
 // =========================
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 
   if (!existeArchivoSeguro(DATA_FILE)) {
@@ -1191,7 +1191,8 @@ app.listen(PORT, async () => {
     });
   }
 
-apiTelegram('deleteWebhook', {});
-setTimeout(() => {
-  cicloPrincipal();
-}, 1000);
+  apiTelegram('deleteWebhook', {});
+  setTimeout(() => {
+    cicloPrincipal();
+  }, 1000);
+});
