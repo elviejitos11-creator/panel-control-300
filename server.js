@@ -1148,7 +1148,7 @@ app.post('/accion-global', async (req, res) => {
     await enviarTexto('▶️ Todas las páginas quedaron en ACTIVA.');
   }
 
-  res.redirect('/');
+ res.json({ ok: true });
 });
 
 // =========================
