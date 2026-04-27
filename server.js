@@ -15,9 +15,10 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
-// CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '';
-const CHAT_ID = '';
+require('dotenv').config();
+
+const PORT = process.env.PORT || 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const SUPPORT_URL = 'https://t.me/tu_soporte';
 const RULES_TEXT = `📜 Reglas del sistema
 
