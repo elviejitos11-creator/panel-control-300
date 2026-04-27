@@ -13,10 +13,10 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '8216481031:AAF4cFp6vsvOnkFF3oJitLe1uenWxWu24JQ';
+const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://t.me/tu_soporte';
 const RULES_TEXT = `📜 Reglas del sistema
