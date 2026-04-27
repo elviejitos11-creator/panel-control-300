@@ -1191,6 +1191,7 @@ app.listen(PORT, async () => {
     });
   }
 
-  await apiTelegram('deleteWebhook', {});
+apiTelegram('deleteWebhook', {});
+setTimeout(() => {
   cicloPrincipal();
-});
+}, 1000);
