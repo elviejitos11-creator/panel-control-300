@@ -12,11 +12,12 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
 });
+
 const PORT = process.env.PORT || 3000;
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHAT_ID = process.env.CHAT_ID;
+const BOT_TOKEN = '8216481031:AAF4cFp6vsvOnkFF3oJitLe1uenWxWu24JQ';
+const CHAT_ID = '';
 const SUPPORT_URL = 'https://t.me/tu_soporte';
 const RULES_TEXT = `📜 Reglas del sistema
 
@@ -1148,7 +1149,7 @@ app.post('/accion-global', async (req, res) => {
     await enviarTexto('▶️ Todas las páginas quedaron en ACTIVA.');
   }
 
- res.json({ ok: true });
+  res.redirect('/');
 });
 
 // =========================
@@ -1176,7 +1177,7 @@ async function cicloPrincipal() {
 // =========================
 // START
 // =========================
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 
   if (!existeArchivoSeguro(DATA_FILE)) {
@@ -1191,8 +1192,6 @@ app.listen(PORT, () => {
     });
   }
 
-  setTimeout(() => {
-  apiTelegram('deleteWebhook', {});
+  await apiTelegram('deleteWebhook', {});
   cicloPrincipal();
-}, 5000);
 });
