@@ -2,26 +2,28 @@
   "1": {
     "nombre": "Perfil 1",
     "chat_id": "6525583297",
-    "telefono": "809-000-0001",
+    "telefono": "+1 267 616 2063",
     "codigo": "AAA001",
-    "ubicacion": "Santo Domingo",
-    "texto": "",
+    "ubicacion": "Philadelphia, PA  Roosevelt Blvd",
+    "texto": "⚡️⚡️\r\n\r\n⚡️⚡️☺️☺️",
     "estado": "ACTIVA",
-    "foto_modelo": "https://picsum.photos/401/260",
-    "foto_pagina": "https://picsum.photos/421/280",
-    "ultima_hora": "27/4/2026, 5:20:25 p. m.",
+    "foto_modelo": "AgACAgEAAxkBAAI1VGnwAAFlmMzwkN4frvLiH3u5l48ywgAC5gxrG5mTgUdBVJs6GvEErQEAAwIAA3gAAzsE",
+    "foto_pagina": "AgACAgEAAxkBAAI1VGnwAAFlmMzwkN4frvLiH3u5l48ywgAC5gxrG5mTgUdBVJs6GvEErQEAAwIAA3gAAzsE",
+    "ultima_hora": "27/4/2026, 9:49:56 p. m.",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777233440242,
+    "proximo_post_ts": 1777341741263,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Reanudado",
+    "ultima_accion": "Perfil editado desde panel",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/26/2026, 2:41:20 PM"
+      "hora": "4/27/2026, 8:46:21 PM"
     },
-    "bump_hoy": 56,
-    "bump_total": 559,
-    "bump_fecha": "2026-04-26",
-    "historial_fotos": [],
+    "bump_hoy": 8,
+    "bump_total": 574,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1VGnwAAFlmMzwkN4frvLiH3u5l48ywgAC5gxrG5mTgUdBVJs6GvEErQEAAwIAA3gAAzsE"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "2": {
@@ -31,22 +33,24 @@
     "codigo": "AAA002",
     "ubicacion": "Santiago",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/402/260",
-    "foto_pagina": "https://picsum.photos/422/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1WWnwAAGTly97RSPuCbpnZqQnifgiZwAC5wxrG5mTgUe_Kj3o7bKO9QEAAwIAA3kAAzsE",
+    "foto_pagina": "AgACAgEAAxkBAAI1WWnwAAGTly97RSPuCbpnZqQnifgiZwAC5wxrG5mTgUe_Kj3o7bKO9QEAAwIAA3kAAzsE",
+    "ultima_hora": "4/27/2026, 8:48:45 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304676194,
+    "proximo_post_ts": 1777341885272,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:36 AM"
+      "hora": "4/27/2026, 8:48:45 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 526,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 8,
+    "bump_total": 543,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1WWnwAAGTly97RSPuCbpnZqQnifgiZwAC5wxrG5mTgUe_Kj3o7bKO9QEAAwIAA3kAAzsE"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "3": {
@@ -56,22 +60,24 @@
     "codigo": "AAA003",
     "ubicacion": "La Vega",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/403/260",
-    "foto_pagina": "https://picsum.photos/423/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1XmnwAAGs8xlfCWftj92qvDZfMPuHJwAC6AxrG5mTgUdOEgAB7lo2QywBAAMCAAN4AAM7BA",
+    "foto_pagina": "AgACAgEAAxkBAAI1XmnwAAGs8xlfCWftj92qvDZfMPuHJwAC6AxrG5mTgUdOEgAB7lo2QywBAAMCAAN4AAM7BA",
+    "ultima_hora": "4/27/2026, 8:48:45 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777312250310,
+    "proximo_post_ts": 1777341885281,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 12:34:50 PM"
+      "hora": "4/27/2026, 8:48:45 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 538,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 9,
+    "bump_total": 552,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1XmnwAAGs8xlfCWftj92qvDZfMPuHJwAC6AxrG5mTgUdOEgAB7lo2QywBAAMCAAN4AAM7BA"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "4": {
@@ -81,22 +87,24 @@
     "codigo": "AAA004",
     "ubicacion": "San Cristóbal",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/404/260",
-    "foto_pagina": "https://picsum.photos/424/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1Y2nwAAHCSOVQ-shDIOGPxVe_l0oTgQAC6QxrG5mTgUckyN-VyV6c1QEAAwIAA3kAAzsE",
+    "foto_pagina": "AgACAgEAAxkBAAI1Y2nwAAHCSOVQ-shDIOGPxVe_l0oTgQAC6QxrG5mTgUckyN-VyV6c1QEAAwIAA3kAAzsE",
+    "ultima_hora": "4/27/2026, 8:49:33 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777325660224,
+    "proximo_post_ts": 1777341933289,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 4:18:20 PM"
+      "hora": "4/27/2026, 8:49:33 PM"
     },
-    "bump_hoy": 3,
-    "bump_total": 563,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 8,
+    "bump_total": 577,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1Y2nwAAHCSOVQ-shDIOGPxVe_l0oTgQAC6QxrG5mTgUckyN-VyV6c1QEAAwIAA3kAAzsE"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "5": {
@@ -106,22 +114,25 @@
     "codigo": "AAA005",
     "ubicacion": "Puerto Plata",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/405/260",
-    "foto_pagina": "https://picsum.photos/425/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1vmnwBxzY83lAq6PosfqYj5DT7_5PAAL4DGsbmZOBR8MheGo_r7cjAQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1vmnwBxzY83lAq6PosfqYj5DT7_5PAAL4DGsbmZOBR8MheGo_r7cjAQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:48:45 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304677452,
+    "proximo_post_ts": 1777341885260,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:37 AM"
+      "hora": "4/27/2026, 8:48:45 PM"
     },
-    "bump_hoy": 1,
-    "bump_total": 565,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 9,
+    "bump_total": 580,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1vmnwBxzY83lAq6PosfqYj5DT7_5PAAL4DGsbmZOBR8MheGo_r7cjAQADAgADeAADOwQ",
+      "AgACAgEAAxkBAAI1VGnwAAFlmMzwkN4frvLiH3u5l48ywgAC5gxrG5mTgUdBVJs6GvEErQEAAwIAA3gAAzsE"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "6": {
@@ -132,21 +143,23 @@
     "ubicacion": "San Pedro",
     "texto": "",
     "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/406/260",
-    "foto_pagina": "https://picsum.photos/426/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "foto_modelo": "AgACAgEAAxkBAAI1bWnwAVkUoCExYIp8_mQxh5ST5EKkAALqDGsbmZOBR-eLwBU-lmz3AQADAgADeQADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1bWnwAVkUoCExYIp8_mQxh5ST5EKkAALqDGsbmZOBR-eLwBU-lmz3AQADAgADeQADOwQ",
+    "ultima_hora": "27/4/2026, 8:37:47 p. m.",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777222847513,
+    "proximo_post_ts": 1777334983457,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Foto guardada desde Telegram",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/26/2026, 11:44:47 AM"
+      "hora": "4/27/2026, 6:53:43 PM"
     },
     "bump_hoy": 6,
-    "bump_total": 255,
-    "bump_fecha": "2026-04-26",
-    "historial_fotos": [],
+    "bump_total": 261,
+    "bump_fecha": "2026-04-27",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1bWnwAVkUoCExYIp8_mQxh5ST5EKkAALqDGsbmZOBR-eLwBU-lmz3AQADAgADeQADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "7": {
@@ -156,22 +169,24 @@
     "codigo": "AAA007",
     "ubicacion": "La Romana",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/407/260",
-    "foto_pagina": "https://picsum.photos/427/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1cmnwAaRrH-fBv6h8Ga3F5Td99lAoAALrDGsbmZOBRzBfsBnykzJkAQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1cmnwAaRrH-fBv6h8Ga3F5Td99lAoAALrDGsbmZOBRzBfsBnykzJkAQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:34:13 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304680353,
+    "proximo_post_ts": 1777341013775,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:40 AM"
+      "hora": "4/27/2026, 8:34:13 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 533,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 6,
+    "bump_total": 545,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1cmnwAaRrH-fBv6h8Ga3F5Td99lAoAALrDGsbmZOBRzBfsBnykzJkAQADAgADeAADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "8": {
@@ -181,22 +196,24 @@
     "codigo": "AAA008",
     "ubicacion": "Bávaro",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/408/260",
-    "foto_pagina": "https://picsum.photos/428/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1d2nwAete7YyANIYL8m-Amm8r_4qiAALsDGsbmZOBR5rgSS-6x4wnAQADAgADeQADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1d2nwAete7YyANIYL8m-Amm8r_4qiAALsDGsbmZOBR5rgSS-6x4wnAQADAgADeQADOwQ",
+    "ultima_hora": "4/27/2026, 8:33:58 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304680066,
+    "proximo_post_ts": 1777340998384,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:40 AM"
+      "hora": "4/27/2026, 8:33:58 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 496,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 5,
+    "bump_total": 507,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1d2nwAete7YyANIYL8m-Amm8r_4qiAALsDGsbmZOBR5rgSS-6x4wnAQADAgADeQADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "9": {
@@ -206,22 +223,24 @@
     "codigo": "AAA009",
     "ubicacion": "Higüey",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/409/260",
-    "foto_pagina": "https://picsum.photos/429/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1gWnwAmuAvzJV14A2jOjd355ANTARAALtDGsbmZOBR0uJN7j4SFHPAQADAgADeQADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1gWnwAmuAvzJV14A2jOjd355ANTARAALtDGsbmZOBR0uJN7j4SFHPAQADAgADeQADOwQ",
+    "ultima_hora": "4/27/2026, 8:33:58 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304674840,
+    "proximo_post_ts": 1777340998289,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:34 AM"
+      "hora": "4/27/2026, 8:33:58 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 565,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 5,
+    "bump_total": 576,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1gWnwAmuAvzJV14A2jOjd355ANTARAALtDGsbmZOBR0uJN7j4SFHPAQADAgADeQADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "10": {
@@ -231,22 +250,25 @@
     "codigo": "AAA010",
     "ubicacion": "Baní",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/410/260",
-    "foto_pagina": "https://picsum.photos/430/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1imnwA28q-aZsmPwQKvIzKcnNQWjOAALuDGsbmZOBR24PlkfrLH4xAQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1imnwA28q-aZsmPwQKvIzKcnNQWjOAALuDGsbmZOBR24PlkfrLH4xAQADAgADeAADOwQ",
+    "ultima_hora": "27/4/2026, 9:33:56 p. m.",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304674727,
+    "proximo_post_ts": 1777339989399,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Foto guardada desde Telegram",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:34 AM"
+      "hora": "4/27/2026, 8:17:09 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 496,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 5,
+    "bump_total": 507,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1imnwA28q-aZsmPwQKvIzKcnNQWjOAALuDGsbmZOBR24PlkfrLH4xAQADAgADeAADOwQ",
+      "AgACAgEAAxkBAAI1imnwA28q-aZsmPwQKvIzKcnNQWjOAALuDGsbmZOBR24PlkfrLH4xAQADAgADeAADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "11": {
@@ -256,22 +278,24 @@
     "codigo": "AAA011",
     "ubicacion": "Santo Domingo",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/411/260",
-    "foto_pagina": "https://picsum.photos/431/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1kmnwA_yKdjqAxZYiWRAxpmm7IV-8AALvDGsbmZOBR-RgW1Y_MdKUAQADAgADeQADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1kmnwA_yKdjqAxZYiWRAxpmm7IV-8AALvDGsbmZOBR-RgW1Y_MdKUAQADAgADeQADOwQ",
+    "ultima_hora": "27/4/2026, 8:49:02 p. m.",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304709987,
+    "proximo_post_ts": 1777336146854,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Foto guardada desde Telegram",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:29:09 AM"
+      "hora": "4/27/2026, 7:13:06 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 486,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 1,
+    "bump_total": 493,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1kmnwA_yKdjqAxZYiWRAxpmm7IV-8AALvDGsbmZOBR-RgW1Y_MdKUAQADAgADeQADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "12": {
@@ -281,22 +305,24 @@
     "codigo": "AAA012",
     "ubicacion": "Santiago",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/412/260",
-    "foto_pagina": "https://picsum.photos/432/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1l2nwBDB_nDVMCWMwnPj33dl__QjwAALwDGsbmZOBR5nnWOFk_oV6AQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1l2nwBDB_nDVMCWMwnPj33dl__QjwAALwDGsbmZOBR5nnWOFk_oV6AQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:39:36 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304711030,
+    "proximo_post_ts": 1777341336285,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:29:10 AM"
+      "hora": "4/27/2026, 8:39:36 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 533,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 6,
+    "bump_total": 545,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1l2nwBDB_nDVMCWMwnPj33dl__QjwAALwDGsbmZOBR5nnWOFk_oV6AQADAgADeAADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "13": {
@@ -306,21 +332,21 @@
     "codigo": "AAA013",
     "ubicacion": "La Vega",
     "texto": "",
-    "estado": "PAUSADA",
+    "estado": "ACTIVA",
     "foto_modelo": "https://picsum.photos/413/260",
     "foto_pagina": "https://picsum.photos/433/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "ultima_hora": "4/27/2026, 8:36:28 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304711102,
+    "proximo_post_ts": 1777341148262,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:29:11 AM"
+      "hora": "4/27/2026, 8:36:28 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 529,
-    "bump_fecha": "2026-04-27",
+    "bump_hoy": 6,
+    "bump_total": 541,
+    "bump_fecha": "2026-04-28",
     "historial_fotos": [],
     "ultimaAccion": "Perfil editado desde panel"
   },
@@ -331,22 +357,24 @@
     "codigo": "AAA014",
     "ubicacion": "San Cristóbal",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/414/260",
-    "foto_pagina": "https://picsum.photos/434/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1oWnwBNq6fVF4pagQQrbToM4ZYre9AALzDGsbmZOBR1f9tiYzVyzxAQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1oWnwBNq6fVF4pagQQrbToM4ZYre9AALzDGsbmZOBR1f9tiYzVyzxAQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:35:43 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304670885,
+    "proximo_post_ts": 1777341103478,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:30 AM"
+      "hora": "4/27/2026, 8:35:43 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 507,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 7,
+    "bump_total": 519,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1oWnwBNq6fVF4pagQQrbToM4ZYre9AALzDGsbmZOBR1f9tiYzVyzxAQADAgADeAADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "15": {
@@ -356,22 +384,23 @@
     "codigo": "AAA015",
     "ubicacion": "Philadelphia, PA  Roosevelt Blvd",
     "texto": "📍 Filadelfia\r\nDisponible ahora\r\nEscríbeme directo",
-    "estado": "PAUSADA",
-    "foto_modelo": "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
-    "foto_pagina": "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1pmnwBRNg1G8SlWxOTpqZmESHWswgAAL0DGsbmZOBR9x59YDb_rn_AQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1pmnwBRNg1G8SlWxOTpqZmESHWswgAAL0DGsbmZOBR9x59YDb_rn_AQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:36:27 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304675000,
+    "proximo_post_ts": 1777341147235,
     "fin_plan": "2026-04-17",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:34 AM"
+      "hora": "4/27/2026, 8:36:27 PM"
     },
-    "bump_hoy": 2,
-    "bump_total": 566,
-    "bump_fecha": "2026-04-27",
+    "bump_hoy": 6,
+    "bump_total": 578,
+    "bump_fecha": "2026-04-28",
     "historial_fotos": [
+      "AgACAgEAAxkBAAI1pmnwBRNg1G8SlWxOTpqZmESHWswgAAL0DGsbmZOBR9x59YDb_rn_AQADAgADeAADOwQ",
       "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
       "AgACAgEAAxkBAAIHamnYPp6IpFdtRECuOG3hteuutzn7AAL3C2sb29vBRuv4IJbu6G-zAQADAgADeAADOwQ",
       "AgACAgEAAxkBAAIHaWnYPp6F6Pkx_cB0jp4dd7S3DdBTAAL2C2sb29vBRiaybGxJIc6zAQADAgADeAADOwQ",
@@ -390,22 +419,23 @@
     "codigo": "Wu24JQ",
     "ubicacion": "New York Wechester Elmsford",
     "texto": "☺️❤️☺️✌️",
-    "estado": "PAUSADA",
-    "foto_modelo": "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
-    "foto_pagina": "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1q2nwBUNWV_YLl8NVh36EOm4eshUvAAL1DGsbmZOBR8VJ5VWdFuD2AQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1q2nwBUNWV_YLl8NVh36EOm4eshUvAAL1DGsbmZOBR8VJ5VWdFuD2AQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:39:22 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304675301,
+    "proximo_post_ts": 1777341322755,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:35 AM"
+      "hora": "4/27/2026, 8:39:22 PM"
     },
-    "bump_hoy": 3,
-    "bump_total": 540,
-    "bump_fecha": "2026-04-27",
+    "bump_hoy": 6,
+    "bump_total": 552,
+    "bump_fecha": "2026-04-28",
     "historial_fotos": [
+      "AgACAgEAAxkBAAI1q2nwBUNWV_YLl8NVh36EOm4eshUvAAL1DGsbmZOBR8VJ5VWdFuD2AQADAgADeAADOwQ",
       "AgACAgEAAxkBAAIHJmnX_0fmV61vgm6OYJS9Q1MRq-3JAALfC2sb29vBRh7a5y5lFoA8AQADAgADeAADOwQ",
       "AgACAgEAAyEFAAToKLJnAAMoadhd9PhfCAlx5l1FWTk7garWSfQAAnsMaxtQKsBGvU9vBuxX8nMBAAMCAAN4AAM7BA",
       "AgACAgEAAyEFAAToKLJnAAMjadhd6OwtKqMk0qUdeWOmbUV5hygAAnoMaxtQKsBGe5vexm924e0BAAMCAAN4AAM7BA",
@@ -421,22 +451,24 @@
     "codigo": "AAA017",
     "ubicacion": "La Romana",
     "texto": "",
-    "estado": "PAUSADA",
-    "foto_modelo": "https://picsum.photos/417/260",
-    "foto_pagina": "https://picsum.photos/437/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "estado": "ACTIVA",
+    "foto_modelo": "AgACAgEAAxkBAAI1sGnwBXa9bYkQzMJ8ot4ICHkHX9UpAAL2DGsbmZOBR-WEBD_KL9gEAQADAgADeAADOwQ",
+    "foto_pagina": "AgACAgEAAxkBAAI1sGnwBXa9bYkQzMJ8ot4ICHkHX9UpAAL2DGsbmZOBR-WEBD_KL9gEAQADAgADeAADOwQ",
+    "ultima_hora": "4/27/2026, 8:39:18 PM",
     "proximo_post": "16m 0s",
-    "proximo_post_ts": 1777304680370,
+    "proximo_post_ts": 1777341318591,
     "fin_plan": "2026-04-25T03:59:59",
-    "ultima_accion": "Pausado globalmente",
+    "ultima_accion": "Publicado con éxito",
     "ultimo_evento": {
       "tipo": "publicado",
-      "hora": "4/27/2026, 10:28:40 AM"
+      "hora": "4/27/2026, 8:39:18 PM"
     },
-    "bump_hoy": 1,
-    "bump_total": 554,
-    "bump_fecha": "2026-04-27",
-    "historial_fotos": [],
+    "bump_hoy": 6,
+    "bump_total": 566,
+    "bump_fecha": "2026-04-28",
+    "historial_fotos": [
+      "AgACAgEAAxkBAAI1sGnwBXa9bYkQzMJ8ot4ICHkHX9UpAAL2DGsbmZOBR-WEBD_KL9gEAQADAgADeAADOwQ"
+    ],
     "ultimaAccion": "Perfil editado desde panel"
   },
   "18": {
@@ -449,7 +481,7 @@
     "estado": "PAUSADA",
     "foto_modelo": "https://picsum.photos/418/260",
     "foto_pagina": "https://picsum.photos/438/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "ultima_hora": "27/4/2026, 6:08:20 p. m.",
     "proximo_post": "16m",
     "proximo_post_ts": null,
     "fin_plan": "7 días",
@@ -470,7 +502,7 @@
     "estado": "PAUSADA",
     "foto_modelo": "https://picsum.photos/419/260",
     "foto_pagina": "https://picsum.photos/439/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "ultima_hora": "27/4/2026, 6:08:20 p. m.",
     "proximo_post": "16m",
     "proximo_post_ts": null,
     "fin_plan": "7 días",
@@ -491,7 +523,7 @@
     "estado": "PAUSADA",
     "foto_modelo": "https://picsum.photos/420/260",
     "foto_pagina": "https://picsum.photos/440/280",
-    "ultima_hora": "27/4/2026, 5:20:16 p. m.",
+    "ultima_hora": "27/4/2026, 6:08:20 p. m.",
     "proximo_post": "16m",
     "proximo_post_ts": null,
     "fin_plan": "7 días",
