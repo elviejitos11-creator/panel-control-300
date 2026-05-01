@@ -27,10 +27,10 @@ const RULES_TEXT = `📜 Reglas del sistema
 4. Si necesitas ayuda, usa el botón Contactar.`;
 
 // archivos locales
-const DATA_FILE = path.join(__dirname, 'data.json');
-const STATE_FILE = path.join(__dirname, 'bot_state.json');
-const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
-const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
+const DATA_FILE = path.join(__dirname, 'data2.json');
+const STATE_FILE = path.join(__dirname, 'bot_state2.json');
+const DATA_BACKUP_FILE = path.join(__dirname, 'data2.backup.json');
+const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state2.backup.json');
 
 // =========================
 // BLOQUEOS DE CICLO
@@ -423,7 +423,7 @@ async function enviarEstadoPerfil(id) {
   const perfil = data[id];
   if (!perfil) return;
 
-  const caption = `🔥 jean carlos BOT 🔥
+  const caption = `🔥 jean calos BOT 🔥
 
 Perfil: ${perfil.nombre}
 📞 Teléfono: ${perfil.telefono}
@@ -544,7 +544,6 @@ app.post('/registrar-evento', async (req, res) => {
     estado,
     foto_modelo,
     foto_pagina,
-    fotos_pagina,
     fin_plan,
     ultima_accion,
     ultima_hora,
@@ -567,15 +566,6 @@ app.post('/registrar-evento', async (req, res) => {
   if (estado) perfil.estado = estado;
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
-
-  if (Array.isArray(fotos_pagina)) {
-    const fotosLimpias = fotos_pagina.filter(Boolean).slice(0, 10);
-
-    perfil.historial_fotos = fotosLimpias;
-    perfil.foto_pagina = fotosLimpias[0] || '';
-    perfil.foto_modelo = fotosLimpias[0] || '';
-  }
-
   if (fin_plan) perfil.fin_plan = convertirFinPlan(fin_plan);
 
   perfil.ultima_hora = ultima_hora || horaActual();
@@ -893,9 +883,6 @@ app.get('/', (req, res) => {
   html += `
     </div>
     <script>
-      setInterval(() => {
-  location.reload();
-}, 10000);
       async function accionPerfil(id, accion) {
         await fetch('/accion', {
           method: 'POST',
@@ -1194,7 +1181,7 @@ async function procesarColaReanudacion() {
   if (colaReanudacion.length > 0) {
     colaTimeout = setTimeout(() => {
       procesarColaReanudacion();
-    }, 45000);
+    }, 45000); // 45 segundos entre perfiles
   } else {
     cancelarColaReanudacion();
   }
