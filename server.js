@@ -544,6 +544,7 @@ app.post('/registrar-evento', async (req, res) => {
     estado,
     foto_modelo,
     foto_pagina,
+    fotos_pagina,
     fin_plan,
     ultima_accion,
     ultima_hora,
@@ -566,6 +567,15 @@ app.post('/registrar-evento', async (req, res) => {
   if (estado) perfil.estado = estado;
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
+
+  if (Array.isArray(fotos_pagina)) {
+    const fotosLimpias = fotos_pagina.filter(Boolean).slice(0, 10);
+
+    perfil.historial_fotos = fotosLimpias;
+    perfil.foto_pagina = fotosLimpias[0] || '';
+    perfil.foto_modelo = fotosLimpias[0] || '';
+  }
+
   if (fin_plan) perfil.fin_plan = convertirFinPlan(fin_plan);
 
   perfil.ultima_hora = ultima_hora || horaActual();
