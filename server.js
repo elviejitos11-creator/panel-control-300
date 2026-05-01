@@ -27,10 +27,10 @@ const RULES_TEXT = `📜 Reglas del sistema
 4. Si necesitas ayuda, usa el botón Contactar.`;
 
 // archivos locales
-const DATA_FILE = path.join(__dirname, 'data2.json');
-const STATE_FILE = path.join(__dirname, 'bot_state2.json');
-const DATA_BACKUP_FILE = path.join(__dirname, 'data2.backup.json');
-const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state2.backup.json');
+const DATA_FILE = path.join(__dirname, 'data.json');
+const STATE_FILE = path.join(__dirname, 'bot_state.json');
+const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
+const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
 
 // =========================
 // BLOQUEOS DE CICLO
