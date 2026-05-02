@@ -462,7 +462,8 @@ async function enviarUltimaActualizacion(id) {
 📊 Bump hoy: ${perfil.bump_hoy || 0}
 📈 Bump total: ${perfil.bump_total || 0}`;
 
-  await enviarFoto(perfil.foto_modelo, caption, id);
+ await enviarFoto(perfil.foto_modelo, caption, id);
+await enviarUltimasFotos(id, 4); 
 }
 
 async function enviarFotoPagina(id) {
