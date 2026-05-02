@@ -883,6 +883,9 @@ app.get('/', (req, res) => {
   html += `
     </div>
     <script>
+      setInterval(() => {
+  location.reload();
+}, 10000);
       async function accionPerfil(id, accion) {
         await fetch('/accion', {
           method: 'POST',
