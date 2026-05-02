@@ -15,7 +15,6 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
-// CAMBIA ESTAS 4 COSAS
 const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://t.me/tu_soporte';
@@ -26,32 +25,18 @@ const RULES_TEXT = `📜 Reglas del sistema
 3. Las fotos pueden no ser en vivo.
 4. Si necesitas ayuda, usa el botón Contactar.`;
 
-// archivos locales
 const DATA_FILE = path.join(__dirname, 'data.json');
 const STATE_FILE = path.join(__dirname, 'bot_state.json');
 const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
 const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
 
-// =========================
-// BLOQUEOS DE CICLO
-// =========================
 let telegramEnProceso = false;
 let cicloEnProceso = false;
 
-// =========================
-// COLA REANUDAR TODAS
-// =========================
-const INTERVALO_REANUDAR_MS = 45000;
+const COLA_TIMEOUT_MS = 120000;
 
-// =========================
-// UTILIDADES SEGURAS JSON
-// =========================
 function existeArchivoSeguro(file) {
-  try {
-    return fs.existsSync(file);
-  } catch {
-    return false;
-  }
+  try { return fs.existsSync(file); } catch { return false; }
 }
 
 function copiarArchivoSiExiste(origen, destino) {
@@ -68,22 +53,14 @@ function copiarArchivoSiExiste(origen, destino) {
 
 function guardarJSONSeguro(file, backupFile, data) {
   const tempFile = `${file}.tmp`;
-
   try {
-    if (existeArchivoSeguro(file)) {
-      copiarArchivoSiExiste(file, backupFile);
-    }
-
+    if (existeArchivoSeguro(file)) copiarArchivoSiExiste(file, backupFile);
     fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf8');
     fs.renameSync(tempFile, file);
     return true;
   } catch (e) {
     console.log(`Error guardando ${file}:`, e.message);
-
-    try {
-      if (existeArchivoSeguro(tempFile)) fs.unlinkSync(tempFile);
-    } catch {}
-
+    try { if (existeArchivoSeguro(tempFile)) fs.unlinkSync(tempFile); } catch {}
     return false;
   }
 }
@@ -98,23 +75,14 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
 
   try {
     const raw = fs.readFileSync(file, 'utf8');
-
-    if (protegerContraVacio && (!raw || !raw.trim())) {
-      throw new Error('Archivo vacío');
-    }
+    if (protegerContraVacio && (!raw || !raw.trim())) throw new Error('Archivo vacío');
 
     const parsed = JSON.parse(raw);
 
     if (
       protegerContraVacio &&
-      (
-        parsed === null ||
-        typeof parsed !== 'object' ||
-        Array.isArray(parsed)
-      )
-    ) {
-      throw new Error('JSON inválido para objeto principal');
-    }
+      (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
+    ) throw new Error('JSON inválido');
 
     return parsed;
   } catch (e) {
@@ -124,25 +92,7 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
   if (existeArchivoSeguro(backupFile)) {
     try {
       const rawBackup = fs.readFileSync(backupFile, 'utf8');
-
-      if (protegerContraVacio && (!rawBackup || !rawBackup.trim())) {
-        throw new Error('Backup vacío');
-      }
-
       const parsedBackup = JSON.parse(rawBackup);
-
-      if (
-        protegerContraVacio &&
-        (
-          parsedBackup === null ||
-          typeof parsedBackup !== 'object' ||
-          Array.isArray(parsedBackup)
-        )
-      ) {
-        throw new Error('Backup inválido');
-      }
-
-      console.log(`Recuperado desde backup: ${backupFile}`);
       guardarJSONSeguro(file, backupFile, parsedBackup);
       return parsedBackup;
     } catch (e) {
@@ -165,11 +115,12 @@ function leerState() {
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      cola_reanudar: {
+      cola_posteo: {
         activa: false,
+        actual: null,
         pendientes: [],
-        ultimoPaso: null,
-        intervaloMs: INTERVALO_REANUDAR_MS
+        iniciadoEn: null,
+        timeoutMs: COLA_TIMEOUT_MS
       }
     },
     { protegerContraVacio: false }
@@ -178,21 +129,18 @@ function leerState() {
   if (!Array.isArray(state.schedules)) state.schedules = [];
   if (!('esperandoFoto' in state)) state.esperandoFoto = null;
 
-  if (!state.cola_reanudar || typeof state.cola_reanudar !== 'object') {
-    state.cola_reanudar = {
+  if (!state.cola_posteo || typeof state.cola_posteo !== 'object') {
+    state.cola_posteo = {
       activa: false,
+      actual: null,
       pendientes: [],
-      ultimoPaso: null,
-      intervaloMs: INTERVALO_REANUDAR_MS
+      iniciadoEn: null,
+      timeoutMs: COLA_TIMEOUT_MS
     };
   }
 
-  if (!Array.isArray(state.cola_reanudar.pendientes)) {
-    state.cola_reanudar.pendientes = [];
-  }
-
-  if (!state.cola_reanudar.intervaloMs) {
-    state.cola_reanudar.intervaloMs = INTERVALO_REANUDAR_MS;
+  if (!Array.isArray(state.cola_posteo.pendientes)) {
+    state.cola_posteo.pendientes = [];
   }
 
   return state;
@@ -265,21 +213,15 @@ function tiempoRestante(ts) {
 }
 
 function tiempoProximoPost(perfil) {
-  return perfil.proximo_post_ts
-    ? tiempoRestante(perfil.proximo_post_ts)
-    : (perfil.proximo_post || 'N/A');
+  return perfil.proximo_post_ts ? tiempoRestante(perfil.proximo_post_ts) : (perfil.proximo_post || 'N/A');
 }
 
 function tiempoRestantePlan(fechaFin) {
   if (!fechaFin) return 'N/A';
-
   const ahora = new Date();
   const fin = new Date(fechaFin);
-
   if (isNaN(fin.getTime())) return fechaFin;
-
   const diff = fin - ahora;
-
   if (diff <= 0) return '❌ Vencido';
 
   const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -292,12 +234,9 @@ function tiempoRestantePlan(fechaFin) {
 
 function convertirFinPlan(valor) {
   if (!valor) return '';
-
   const texto = String(valor).trim().toLowerCase();
 
-  if (/^\d{4}-\d{2}-\d{2}(t\d{2}:\d{2}:\d{2})?$/.test(texto)) {
-    return valor;
-  }
+  if (/^\d{4}-\d{2}-\d{2}(t\d{2}:\d{2}:\d{2})?$/.test(texto)) return valor;
 
   const m = texto.match(/^(\d+)\s*d[ií]a?s?$/);
   if (m) {
@@ -311,9 +250,6 @@ function convertirFinPlan(valor) {
   return valor;
 }
 
-// =========================
-// TELEGRAM
-// =========================
 function tecladoTelegram(id) {
   return {
     inline_keyboard: [
@@ -329,19 +265,13 @@ function tecladoTelegram(id) {
         { text: '⏰ Programar pausa', callback_data: `progpausa_${id}` },
         { text: '⏰ Programar reanudar', callback_data: `progreanudar_${id}` }
       ],
-      [
-        { text: '🕒 Último bump', callback_data: `ultima_${id}` }
-      ],
-      [
-        { text: '🔄 Reiniciar bot', callback_data: `reiniciar_${id}` }
-      ],
+      [{ text: '🕒 Último bump', callback_data: `ultima_${id}` }],
+      [{ text: '🔄 Reiniciar bot', callback_data: `reiniciar_${id}` }],
       [
         { text: '📞 Contactar', url: SUPPORT_URL },
         { text: '📜 Ver reglas', callback_data: 'reglas' }
       ],
-      [
-        { text: '📸 Ver una foto', callback_data: `foto_${id}` }
-      ],
+      [{ text: '📸 Ver una foto', callback_data: `foto_${id}` }],
       [
         { text: '📂 Ver últimas 3', callback_data: `fotos3_${id}` },
         { text: '🗂 Ver últimas 4', callback_data: `fotos4_${id}` }
@@ -360,15 +290,9 @@ async function apiTelegram(method, payload) {
     return res.data;
   } catch (error) {
     const msg = error.response?.data || error.message || '';
-
-    if (
-      String(msg).includes('ECONNRESET') ||
-      String(msg).includes('ETIMEDOUT') ||
-      String(msg).includes('socket hang up')
-    ) {
+    if (String(msg).includes('ECONNRESET') || String(msg).includes('ETIMEDOUT') || String(msg).includes('socket hang up')) {
       return null;
     }
-
     console.log(`Error Telegram ${method}:`);
     console.log(msg);
     return null;
@@ -376,10 +300,7 @@ async function apiTelegram(method, payload) {
 }
 
 async function responderCallback(callbackQueryId, text = 'OK') {
-  await apiTelegram('answerCallbackQuery', {
-    callback_query_id: callbackQueryId,
-    text
-  });
+  await apiTelegram('answerCallbackQuery', { callback_query_id: callbackQueryId, text });
 }
 
 async function enviarTexto(texto, chatId = CHAT_ID, idTeclado = null) {
@@ -411,9 +332,6 @@ async function enviarFoto(photo, caption, id) {
   }
 }
 
-// =========================
-// ESTADOS
-// =========================
 function cambiarEstadoPerfil(id, estado) {
   const data = leerData();
   if (!data[id]) return false;
@@ -432,8 +350,7 @@ function cambiarEstadoTodos(estado) {
     asegurarPerfil(data, id);
     data[id].estado = estado;
     data[id].ultima_hora = horaActual();
-    data[id].ultima_accion =
-      estado === 'ACTIVA' ? 'Reanudado globalmente' : 'Pausado globalmente';
+    data[id].ultima_accion = estado === 'ACTIVA' ? 'Reanudado globalmente' : 'Pausado globalmente';
   }
   guardarData(data);
 }
@@ -449,30 +366,15 @@ function programarAccion(id, accion, minutos = 30) {
 }
 
 // =========================
-// REANUDAR TODAS EN COLA CADA 45 SEGUNDOS
+// COLA DE POSTEO
 // =========================
 function ordenarIdsPerfiles(ids) {
   return ids.sort((a, b) => {
     const na = Number(a);
     const nb = Number(b);
-
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-
     return String(a).localeCompare(String(b));
   });
-}
-
-function cancelarColaReanudar() {
-  const state = leerState();
-
-  state.cola_reanudar = {
-    activa: false,
-    pendientes: [],
-    ultimoPaso: null,
-    intervaloMs: INTERVALO_REANUDAR_MS
-  };
-
-  guardarState(state);
 }
 
 async function iniciarColaReanudarTodos(chatId = CHAT_ID) {
@@ -488,82 +390,89 @@ async function iniciarColaReanudarTodos(chatId = CHAT_ID) {
     asegurarPerfil(data, id);
     data[id].estado = 'PAUSADA';
     data[id].ultima_hora = horaActual();
-    data[id].ultima_accion = 'En espera para reanudar en cola';
+    data[id].ultima_accion = 'En espera de cola';
   }
 
   const primero = ids[0];
 
   data[primero].estado = 'ACTIVA';
   data[primero].ultima_hora = horaActual();
-  data[primero].ultima_accion = 'Reanudado por cola';
+  data[primero].ultima_accion = 'ACTIVA por cola de posteo';
 
   guardarData(data);
 
   const state = leerState();
-
-  state.cola_reanudar = {
+  state.cola_posteo = {
     activa: true,
+    actual: String(primero),
     pendientes: ids.slice(1).map(String),
-    ultimoPaso: Date.now(),
-    intervaloMs: INTERVALO_REANUDAR_MS
+    iniciadoEn: Date.now(),
+    timeoutMs: COLA_TIMEOUT_MS
   };
-
   guardarState(state);
 
   await enviarTexto(
-    `▶️ Reanudar todas iniciado en cola\n\n✅ Perfil ${primero} ACTIVA\n⏳ Próximo perfil en 45 segundos\n📌 Pendientes: ${ids.length - 1}`,
+    `▶️ Cola de posteo iniciada\n\nPrimero activo: Perfil ${primero}\nPendientes: ${ids.length - 1}`,
     chatId
   );
 
   await enviarEstadoPerfil(primero);
 }
 
-async function revisarColaReanudar() {
+async function avanzarColaPosteo(idPublicado, motivo = 'Publicado con éxito') {
   const state = leerState();
-  const cola = state.cola_reanudar;
+  const cola = state.cola_posteo;
 
   if (!cola || !cola.activa) return;
-
-  if (!Array.isArray(cola.pendientes) || cola.pendientes.length === 0) {
-    cola.activa = false;
-    cola.ultimoPaso = null;
-    cola.pendientes = [];
-    state.cola_reanudar = cola;
-    guardarState(state);
-
-    await enviarTexto('✅ Cola de reanudar terminada. Todos los perfiles fueron activados.');
-    return;
-  }
-
-  const intervalo = cola.intervaloMs || INTERVALO_REANUDAR_MS;
-
-  if (Date.now() - cola.ultimoPaso < intervalo) return;
+  if (String(cola.actual) !== String(idPublicado)) return;
 
   const siguiente = cola.pendientes.shift();
+
+  if (!siguiente) {
+    cola.activa = false;
+    cola.actual = null;
+    cola.iniciadoEn = null;
+    cola.pendientes = [];
+    state.cola_posteo = cola;
+    guardarState(state);
+
+    await enviarTexto(`✅ Cola terminada.\nÚltimo perfil publicado: ${idPublicado}`);
+    return;
+  }
 
   const data = leerData();
   asegurarPerfil(data, siguiente);
 
   data[siguiente].estado = 'ACTIVA';
   data[siguiente].ultima_hora = horaActual();
-  data[siguiente].ultima_accion = 'Reanudado por cola cada 45 segundos';
+  data[siguiente].ultima_accion = 'ACTIVA por cola después de publicación';
 
   guardarData(data);
 
-  cola.ultimoPaso = Date.now();
-
-  if (cola.pendientes.length === 0) {
-    cola.activa = false;
-  }
-
-  state.cola_reanudar = cola;
+  cola.actual = String(siguiente);
+  cola.iniciadoEn = Date.now();
+  state.cola_posteo = cola;
   guardarState(state);
 
-  await enviarTexto(
-    `▶️ Perfil ${siguiente} reanudado por cola\n⏳ Pendientes: ${cola.pendientes.length}`
-  );
-
+  await enviarTexto(`✅ Perfil ${idPublicado}: ${motivo}\n➡️ Activando ahora perfil ${siguiente}`);
   await enviarEstadoPerfil(siguiente);
+}
+
+async function revisarTimeoutColaPosteo() {
+  const state = leerState();
+  const cola = state.cola_posteo;
+
+  if (!cola || !cola.activa || !cola.actual || !cola.iniciadoEn) return;
+
+  const timeoutMs = cola.timeoutMs || COLA_TIMEOUT_MS;
+
+  if (Date.now() - cola.iniciadoEn >= timeoutMs) {
+    await enviarTexto(
+      `⚠️ Perfil ${cola.actual} no reportó publicación en ${Math.round(timeoutMs / 1000)} segundos.\n➡️ Pasando al siguiente por seguridad.`
+    );
+
+    await avanzarColaPosteo(cola.actual, 'Tiempo agotado sin publicación');
+  }
 }
 
 // =========================
@@ -673,7 +582,6 @@ app.get('/api/estado/:id', (req, res) => {
     });
   } catch (error) {
     console.log('Error en /api/estado/:id =>', error?.message || error);
-
     return res.json({
       estado: 'ACTIVA',
       motivo: 'Fallo del panel/lectura: se mantiene ACTIVA'
@@ -698,9 +606,7 @@ app.post('/registrar-evento', async (req, res) => {
     minutos_siguientes = 16
   } = req.body;
 
-  if (!id) {
-    return res.status(400).json({ ok: false, error: 'Falta id' });
-  }
+  if (!id) return res.status(400).json({ ok: false, error: 'Falta id' });
 
   const data = leerData();
   asegurarPerfil(data, id);
@@ -730,12 +636,13 @@ app.post('/registrar-evento', async (req, res) => {
   }
 
   const ok = guardarData(data);
-
-  if (!ok) {
-    return res.status(500).json({ ok: false, error: 'No se pudo guardar data.json' });
-  }
+  if (!ok) return res.status(500).json({ ok: false, error: 'No se pudo guardar data.json' });
 
   await enviarUltimaActualizacion(id);
+
+  if (tipo === 'publicado') {
+    await avanzarColaPosteo(id, 'Publicado con éxito');
+  }
 
   res.json({ ok: true, perfil: data[id] });
 });
@@ -749,8 +656,18 @@ async function procesarCallback(q) {
   const chatId = q.message?.chat?.id || CHAT_ID;
 
   if (data === 'pausar_todas') {
-    cancelarColaReanudar();
     cambiarEstadoTodos('PAUSADA');
+
+    const state = leerState();
+    state.cola_posteo = {
+      activa: false,
+      actual: null,
+      pendientes: [],
+      iniciadoEn: null,
+      timeoutMs: COLA_TIMEOUT_MS
+    };
+    guardarState(state);
+
     await responderCallback(callbackId, 'Todas pausadas');
     await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.', chatId);
     return;
@@ -851,16 +768,12 @@ async function revisarTelegram() {
       timeout: 10
     });
 
-    if (!updates || !updates.ok || !Array.isArray(updates.result)) {
-      return;
-    }
+    if (!updates || !updates.ok || !Array.isArray(updates.result)) return;
 
     for (const u of updates.result) {
       state.offset = u.update_id;
 
-      if (u.callback_query) {
-        await procesarCallback(u.callback_query);
-      }
+      if (u.callback_query) await procesarCallback(u.callback_query);
 
       if (u.message) {
         const msg = u.message;
@@ -898,9 +811,7 @@ async function revisarTelegram() {
           data[id].foto_modelo = fileId;
           data[id].foto_pagina = fileId;
 
-          if (!Array.isArray(data[id].historial_fotos)) {
-            data[id].historial_fotos = [];
-          }
+          if (!Array.isArray(data[id].historial_fotos)) data[id].historial_fotos = [];
 
           data[id].historial_fotos.unshift(fileId);
           data[id].historial_fotos = data[id].historial_fotos.slice(0, 10);
@@ -936,9 +847,7 @@ async function ejecutarProgramaciones() {
     if (Date.now() >= item.ejecutarEn) {
       cambio = true;
       cambiarEstadoPerfil(item.id, item.accion);
-      await enviarTexto(
-        `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
-      );
+      await enviarTexto(`⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`);
       await enviarEstadoPerfil(item.id);
     } else {
       pendientes.push(item);
@@ -951,14 +860,295 @@ async function ejecutarProgramaciones() {
   }
 }
 
-// PANEL WEB, FORMULARIOS Y ACCIONES QUEDAN IGUAL QUE TU SERVER ORIGINAL
+// =========================
+// PANEL WEB
+// =========================
+app.get('/', (req, res) => {
+  const data = leerData();
+
+  let html = `
+  <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PANEL PRO</title>
+    <style>
+      body { background:#0b1c2c; color:white; font-family:Arial,sans-serif; margin:0; padding:20px; }
+      h1, h2 { margin-top:0; }
+      .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+      .card { background:#132f4c; padding:20px; border-radius:14px; }
+      .row { margin:6px 0; }
+      .estado { font-weight:bold; }
+      button, .btn {
+        margin:6px 6px 0 0; padding:10px 14px; border:none; border-radius:10px;
+        cursor:pointer; font-weight:bold; text-decoration:none; display:inline-block;
+      }
+      .danger { background:#c62828; color:white; }
+      .success { background:#2e7d32; color:white; }
+      .info { background:#1565c0; color:white; }
+      .muted { background:#455a64; color:white; }
+      .warning { background:#ef6c00; color:white; }
+      .small { font-size:12px; opacity:.9; }
+      input, textarea, select {
+        width:100%; padding:10px; border-radius:8px; border:none; margin-top:4px; margin-bottom:12px;
+      }
+      label { font-weight:bold; }
+      .form-box { max-width:700px; background:#132f4c; padding:20px; border-radius:14px; }
+    </style>
+  </head>
+  <body>
+    <h1>🔥 PANEL PRO 🔥</h1>
+    <div style="margin-bottom:16px;">
+      <button class="danger" onclick="accionGlobal('pausar_todas')">⏸ Pausar todas</button>
+      <button class="success" onclick="accionGlobal('reanudar_todas')">▶️ Reanudar todas en cola</button>
+      <a class="btn warning" href="/nuevo">➕ Nuevo perfil</a>
+    </div>
+    <div class="grid">
+  `;
+
+  for (const id of Object.keys(data)) {
+    const p = data[id];
+    const totalFotos = Array.isArray(p.historial_fotos) ? p.historial_fotos.length : 0;
+
+    html += `
+      <div class="card">
+        <div class="row"><strong>${p.nombre}</strong></div>
+        <div class="row">🆔 Perfil: ${id}</div>
+        <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
+        <div class="row">📞 ${p.telefono}</div>
+        <div class="row">🆔 Código: ${p.codigo}</div>
+        <div class="row">📍 ${p.ubicacion}</div>
+        <div class="row estado">🟢 ${p.estado}</div>
+        <div class="row">🕒 ${p.ultima_hora}</div>
+        <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
+        <div class="row">📅 ${tiempoRestantePlan(p.fin_plan)}</div>
+        <div class="row">📊 Bump hoy: ${p.bump_hoy || 0}</div>
+        <div class="row">📈 Bump total: ${p.bump_total || 0}</div>
+        <div class="row">🖼 Historial fotos: ${totalFotos}</div>
+        <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
+
+        <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
+        <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
+        <button class="muted" onclick="accionPerfil('${id}','progpausa')">⏰ Programar pausa</button>
+        <button class="muted" onclick="accionPerfil('${id}','progreanudar')">⏰ Programar reanudar</button>
+        <button class="info" onclick="accionPerfil('${id}','ultima')">🕒 Último bump</button>
+        <button class="info" onclick="accionPerfil('${id}','foto')">📸 Ver foto</button>
+        <button class="muted" onclick="accionPerfil('${id}','reiniciar')">🔄 Reiniciar bot</button>
+        <a class="btn warning" href="/editar/${id}">✏️ Editar</a>
+      </div>
+    `;
+  }
+
+  html += `
+    </div>
+    <script>
+      async function accionPerfil(id, accion) {
+        await fetch('/accion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, accion })
+        });
+        location.reload();
+      }
+
+      async function accionGlobal(accion) {
+        await fetch('/accion-global', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion })
+        });
+        location.reload();
+      }
+    </script>
+  </body>
+  </html>
+  `;
+
+  res.send(html);
+});
+
+// FORM NUEVO PERFIL
+app.get('/nuevo', (req, res) => {
+  res.send(`
+  <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nuevo perfil</title>
+    <style>
+      body { background:#0b1c2c; color:white; font-family:Arial,sans-serif; margin:0; padding:20px; }
+      input, textarea, select { width:100%; padding:10px; border-radius:8px; border:none; margin-top:4px; margin-bottom:12px; }
+      label { font-weight:bold; }
+      .form-box { max-width:700px; background:#132f4c; padding:20px; border-radius:14px; }
+      button, a { padding:10px 14px; border:none; border-radius:10px; text-decoration:none; display:inline-block; }
+      .success { background:#2e7d32; color:white; }
+      .muted { background:#455a64; color:white; }
+    </style>
+  </head>
+  <body>
+    <h1>➕ Nuevo perfil</h1>
+    <div class="form-box">
+      <form method="POST" action="/guardar-perfil">
+        <label>ID del perfil</label>
+        <input name="id" required />
+        <label>Nombre</label><input name="nombre" />
+        <label>Chat ID</label><input name="chat_id" />
+        <label>Teléfono</label><input name="telefono" />
+        <label>Código</label><input name="codigo" />
+        <label>Ubicación</label><input name="ubicacion" />
+        <label>Texto</label><textarea name="texto"></textarea>
+        <label>Estado</label>
+        <select name="estado">
+          <option value="ACTIVA">ACTIVA</option>
+          <option value="PAUSADA">PAUSADA</option>
+        </select>
+        <label>Foto modelo (URL o file_id)</label><input name="foto_modelo" />
+        <label>Foto página (URL o file_id)</label><input name="foto_pagina" />
+        <label>Próximo post</label><input name="proximo_post" value="16m" />
+        <label>Fin de plan</label><input name="fin_plan" value="7 días" />
+        <button class="success" type="submit">Guardar perfil</button>
+        <a class="muted" href="/">Volver</a>
+      </form>
+    </div>
+  </body>
+  </html>
+  `);
+});
+
+// FORM EDITAR PERFIL
+app.get('/editar/:id', (req, res) => {
+  const data = leerData();
+  const id = req.params.id;
+
+  if (!data[id]) return res.status(404).send('Perfil no encontrado');
+
+  const p = data[id];
+
+  res.send(`
+  <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Editar perfil ${id}</title>
+    <style>
+      body { background:#0b1c2c; color:white; font-family:Arial,sans-serif; margin:0; padding:20px; }
+      input, textarea, select { width:100%; padding:10px; border-radius:8px; border:none; margin-top:4px; margin-bottom:12px; }
+      label { font-weight:bold; }
+      .form-box { max-width:700px; background:#132f4c; padding:20px; border-radius:14px; }
+      button, a { padding:10px 14px; border:none; border-radius:10px; text-decoration:none; display:inline-block; }
+      .success { background:#2e7d32; color:white; }
+      .muted { background:#455a64; color:white; }
+    </style>
+  </head>
+  <body>
+    <h1>✏️ Editar perfil ${id}</h1>
+    <div class="form-box">
+      <form method="POST" action="/guardar-perfil">
+        <input type="hidden" name="id" value="${id}" />
+        <label>Nombre</label><input name="nombre" value="${p.nombre || ''}" />
+        <label>Chat ID</label><input name="chat_id" value="${p.chat_id || ''}" />
+        <label>Teléfono</label><input name="telefono" value="${p.telefono || ''}" />
+        <label>Código</label><input name="codigo" value="${p.codigo || ''}" />
+        <label>Ubicación</label><input name="ubicacion" value="${p.ubicacion || ''}" />
+        <label>Texto</label><textarea name="texto">${p.texto || ''}</textarea>
+        <label>Estado</label>
+        <select name="estado">
+          <option value="ACTIVA" ${p.estado === 'ACTIVA' ? 'selected' : ''}>ACTIVA</option>
+          <option value="PAUSADA" ${p.estado === 'PAUSADA' ? 'selected' : ''}>PAUSADA</option>
+        </select>
+        <label>Foto modelo (URL o file_id)</label><input name="foto_modelo" value="${p.foto_modelo || ''}" />
+        <label>Foto página (URL o file_id)</label><input name="foto_pagina" value="${p.foto_pagina || ''}" />
+        <label>Próximo post</label><input name="proximo_post" value="${p.proximo_post || ''}" />
+        <label>Fin de plan</label><input name="fin_plan" value="${p.fin_plan || ''}" />
+        <button class="success" type="submit">Guardar cambios</button>
+        <a class="muted" href="/">Volver</a>
+      </form>
+    </div>
+  </body>
+  </html>
+  `);
+});
+
+// GUARDAR PERFIL
+app.post('/guardar-perfil', (req, res) => {
+  const {
+    id, nombre, chat_id, telefono, codigo, ubicacion, texto,
+    estado, foto_modelo, foto_pagina, proximo_post, fin_plan
+  } = req.body;
+
+  if (!id) return res.status(400).send('Falta ID');
+
+  const data = leerData();
+  asegurarPerfil(data, id);
+
+  data[id].nombre = nombre || `Perfil ${id}`;
+  data[id].chat_id = chat_id || '';
+  data[id].telefono = telefono || '';
+  data[id].codigo = codigo || '';
+  data[id].ubicacion = ubicacion || '';
+  data[id].texto = texto || '';
+  data[id].estado = estado || 'ACTIVA';
+  data[id].foto_modelo = foto_modelo || 'https://picsum.photos/400/260';
+  data[id].foto_pagina = foto_pagina || 'https://picsum.photos/420/280';
+  data[id].proximo_post = proximo_post || '16m';
+  data[id].fin_plan = convertirFinPlan(fin_plan || '7 días');
+  data[id].ultima_hora = horaActual();
+  data[id].ultimaAccion = 'Perfil editado desde panel';
+  data[id].ultima_accion = 'Perfil editado desde panel';
+
+  const ok = guardarData(data);
+  if (!ok) return res.status(500).send('No se pudo guardar el perfil');
+
+  res.redirect('/');
+});
+
+// =========================
+// ACCIONES PANEL
+// =========================
+app.post('/accion', async (req, res) => {
+  const { id, accion } = req.body;
+  const data = leerData();
+
+  if (!data[id]) return res.status(404).send('Perfil no encontrado');
+
+  if (accion === 'pausar') {
+    cambiarEstadoPerfil(id, 'PAUSADA');
+    await enviarEstadoPerfil(id);
+  } else if (accion === 'reanudar') {
+    cambiarEstadoPerfil(id, 'ACTIVA');
+    await enviarEstadoPerfil(id);
+  } else if (accion === 'progpausa') {
+    programarAccion(id, 'PAUSADA', 30);
+    await enviarTexto(`⏰ Se programó una pausa para ${data[id].nombre} en 30 minutos.`);
+  } else if (accion === 'progreanudar') {
+    programarAccion(id, 'ACTIVA', 30);
+    await enviarTexto(`⏰ Se programó una reanudación para ${data[id].nombre} en 30 minutos.`);
+  } else if (accion === 'ultima') {
+    await enviarUltimaActualizacion(id);
+  } else if (accion === 'foto') {
+    await enviarFotoPagina(id);
+  } else if (accion === 'reiniciar') {
+    cambiarEstadoPerfil(id, 'ACTIVA');
+    await enviarTexto(`🔄 ${data[id].nombre} reiniciado.`);
+    await enviarEstadoPerfil(id);
+  }
+
+  res.redirect('/');
+});
 
 app.post('/accion-global', async (req, res) => {
   const { accion } = req.body;
 
   if (accion === 'pausar_todas') {
-    cancelarColaReanudar();
     cambiarEstadoTodos('PAUSADA');
+
+    const state = leerState();
+    state.cola_posteo = {
+      activa: false,
+      actual: null,
+      pendientes: [],
+      iniciadoEn: null,
+      timeoutMs: COLA_TIMEOUT_MS
+    };
+    guardarState(state);
+
     await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.');
   } else if (accion === 'reanudar_todas') {
     await iniciarColaReanudarTodos();
@@ -981,7 +1171,7 @@ async function cicloPrincipal() {
   try {
     await revisarTelegram();
     await ejecutarProgramaciones();
-    await revisarColaReanudar();
+    await revisarTimeoutColaPosteo();
   } catch (error) {
     console.log('Error en cicloPrincipal:', error?.message || error);
   } finally {
@@ -996,20 +1186,19 @@ async function cicloPrincipal() {
 app.listen(PORT, async () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 
-  if (!existeArchivoSeguro(DATA_FILE)) {
-    guardarData({});
-  }
+  if (!existeArchivoSeguro(DATA_FILE)) guardarData({});
 
   if (!existeArchivoSeguro(STATE_FILE)) {
     guardarState({
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      cola_reanudar: {
+      cola_posteo: {
         activa: false,
+        actual: null,
         pendientes: [],
-        ultimoPaso: null,
-        intervaloMs: INTERVALO_REANUDAR_MS
+        iniciadoEn: null,
+        timeoutMs: COLA_TIMEOUT_MS
       }
     });
   }
