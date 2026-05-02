@@ -608,11 +608,11 @@ async function procesarCallback(q) {
   }
 
   if (data === 'reanudar_todas') {
-    cambiarEstadoTodos('ACTIVA');
-    await responderCallback(callbackId, 'Todas reanudadas');
-    await enviarTexto('▶️ Todas las páginas quedaron en ACTIVA.', chatId);
-    return;
-  }
+  reanudarTodasEnCola();
+  await responderCallback(callbackId, 'Reanudando en cola');
+  await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.', chatId);
+  return;
+}
 
   if (data === 'reglas') {
     await responderCallback(callbackId, 'Reglas');
