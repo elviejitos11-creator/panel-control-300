@@ -259,6 +259,23 @@ function tiempoRestantePlan(fechaFin) {
   return `${dias} días, ${horas}h ${minutos}m ${segundos}s`;
 }
 
+function planVencido(perfil) {
+  if (!perfil || !perfil.fin_plan) return false;
+
+  const fin = new Date(perfil.fin_plan);
+
+  if (isNaN(fin.getTime())) return false;
+
+  return fin <= new Date();
+}
+
+function puedeContarBump(perfil) {
+  if (!perfil) return false;
+  if (perfil.estado === 'PAUSADA') return false;
+  if (planVencido(perfil)) return false;
+  return true;
+}
+
 function convertirFinPlan(valor) {
   if (!valor) return '';
 
@@ -576,9 +593,7 @@ app.get('/api/licencia/:id', (req, res) => {
       });
     }
 
-    const fin = new Date(perfil.fin_plan);
-
-    if (perfil.fin_plan && !isNaN(fin.getTime()) && fin <= new Date()) {
+    if (planVencido(perfil)) {
       return res.json({
         ok: false,
         estado: 'VENCIDA',
@@ -607,7 +622,14 @@ app.get('/api/estado/:id', (req, res) => {
     const data = leerData();
     const perfil = data[req.params.id];
 
-    if (perfil && perfil.estado === 'PAUSADA') {
+    if (!perfil) {
+      return res.json({
+        estado: 'NO_EXISTE',
+        motivo: 'Perfil no existe'
+      });
+    }
+
+    if (perfil.estado === 'PAUSADA') {
       return res.json({
         estado: 'PAUSADA',
         motivo: 'Pausada por orden explícita del panel'
@@ -622,8 +644,8 @@ app.get('/api/estado/:id', (req, res) => {
     console.log('Error en /api/estado/:id =>', error?.message || error);
 
     return res.json({
-      estado: 'ACTIVA',
-      motivo: 'Fallo del panel/lectura: se mantiene ACTIVA'
+      estado: 'ERROR',
+      motivo: 'Fallo del panel/lectura'
     });
   }
 });
@@ -631,12 +653,11 @@ app.get('/api/estado/:id', (req, res) => {
 app.post('/registrar-evento', async (req, res) => {
   const {
     id,
-    tipo = 'evento',
+    tipo = 'silencioso',
     telefono,
     codigo,
     ubicacion,
     texto,
-    estado,
     foto_modelo,
     foto_pagina,
     fotos_pagina,
@@ -650,6 +671,8 @@ app.post('/registrar-evento', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'Falta id' });
   }
 
+  const tipoNormal = String(tipo || 'silencioso').trim().toLowerCase();
+
   const data = leerData();
   asegurarPerfil(data, id);
 
@@ -659,7 +682,10 @@ app.post('/registrar-evento', async (req, res) => {
   if (codigo) perfil.codigo = codigo;
   if (ubicacion) perfil.ubicacion = ubicacion;
   if (typeof texto === 'string') perfil.texto = texto;
-  if (estado) perfil.estado = estado;
+
+  // IMPORTANTE:
+  // /registrar-evento NO puede cambiar estado.
+  // Solo el panel/botones pueden poner ACTIVA o PAUSADA.
 
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
@@ -686,16 +712,30 @@ app.post('/registrar-evento', async (req, res) => {
   if (fin_plan) perfil.fin_plan = convertirFinPlan(fin_plan);
 
   perfil.ultima_hora = ultima_hora || horaActual();
-  perfil.ultima_accion = ultima_accion || tipo;
-  perfil.ultimo_evento = { tipo, hora: perfil.ultima_hora };
+  perfil.ultima_accion = ultima_accion || tipoNormal;
+  perfil.ultimo_evento = { tipo: tipoNormal, hora: perfil.ultima_hora };
 
-  if (tipo === 'publicado' || tipo === 'evento') {
-    resetBumpSiCambioDia(perfil);
-    perfil.bump_hoy = (perfil.bump_hoy || 0) + 1;
-    perfil.bump_total = (perfil.bump_total || 0) + 1;
-    perfil.bump_fecha = fechaHoy();
-    perfil.proximo_post_ts = Date.now() + Number(minutos_siguientes) * 60 * 1000;
-    perfil.proximo_post = tiempoProximoPost(perfil);
+  let contarBump = false;
+
+  if (tipoNormal === 'publicado') {
+    if (puedeContarBump(perfil)) {
+      contarBump = true;
+
+      resetBumpSiCambioDia(perfil);
+      perfil.bump_hoy = (perfil.bump_hoy || 0) + 1;
+      perfil.bump_total = (perfil.bump_total || 0) + 1;
+      perfil.bump_fecha = fechaHoy();
+      perfil.proximo_post_ts = Date.now() + Number(minutos_siguientes) * 60 * 1000;
+      perfil.proximo_post = tiempoProximoPost(perfil);
+      perfil.ultima_accion = ultima_accion || 'Publicado con éxito';
+    } else {
+      perfil.ultima_accion = `Publicado ignorado: perfil ${perfil.estado}${planVencido(perfil) ? ' / vencido' : ''}`;
+      perfil.ultimo_evento = {
+        tipo: 'publicado_ignorado',
+        hora: perfil.ultima_hora,
+        motivo: perfil.estado === 'PAUSADA' ? 'PAUSADA' : (planVencido(perfil) ? 'VENCIDA' : 'BLOQUEADO')
+      };
+    }
   }
 
   const ok = guardarData(data);
@@ -704,11 +744,16 @@ app.post('/registrar-evento', async (req, res) => {
     return res.status(500).json({ ok: false, error: 'No se pudo guardar data.json' });
   }
 
-  if (tipo === 'publicado' || tipo === 'evento') {
+  if (contarBump) {
     await enviarUltimaActualizacion(id);
   }
 
-  res.json({ ok: true, perfil: data[id] });
+  res.json({
+    ok: true,
+    tipo: tipoNormal,
+    bump_contado: contarBump,
+    perfil: data[id]
+  });
 });
 
 // =========================
