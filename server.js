@@ -3,9 +3,17 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
+let FormData = null;
+
+try {
+  FormData = require('form-data');
+} catch (e) {
+  console.log('⚠️ Falta form-data. Corre: npm install form-data');
+}
+
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -211,6 +219,7 @@ function asegurarPerfil(data, id) {
       estado: 'ACTIVA',
       foto_modelo: 'https://picsum.photos/400/260',
       foto_pagina: 'https://picsum.photos/420/280',
+      foto_bump: '',
       historial_fotos: [],
       ultima_hora: 'N/A',
       proximo_post: '16m',
@@ -230,6 +239,7 @@ function asegurarPerfil(data, id) {
     if (!Array.isArray(data[id].historial_fotos)) data[id].historial_fotos = [];
     if (!data[id].estado) data[id].estado = 'ACTIVA';
     if (!('cliente_token' in data[id])) data[id].cliente_token = '';
+    if (!('foto_bump' in data[id])) data[id].foto_bump = '';
   }
 }
 
@@ -377,6 +387,29 @@ async function apiTelegram(method, payload) {
   }
 }
 
+async function apiTelegramForm(method, form) {
+  try {
+    const headers = form.getHeaders ? form.getHeaders() : {};
+
+    const res = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
+      form,
+      {
+        headers,
+        timeout: 60000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
+    );
+
+    return res.data;
+  } catch (error) {
+    console.log(`Error Telegram FORM ${method}:`);
+    console.log(error.response?.data || error.message || error);
+    return null;
+  }
+}
+
 async function responderCallback(callbackQueryId, text = 'OK') {
   await apiTelegram('answerCallbackQuery', {
     callback_query_id: callbackQueryId,
@@ -411,6 +444,63 @@ async function enviarFoto(photo, caption, id) {
       reply_markup: tecladoTelegram(id)
     });
   }
+
+  return !!(res && res.ok);
+}
+
+function esImagenBase64(valor) {
+  return typeof valor === 'string' && valor.startsWith('data:image/');
+}
+
+function bufferDesdeBase64(valor) {
+  const limpio = String(valor || '').replace(/^data:image\/\w+;base64,/, '');
+  return Buffer.from(limpio, 'base64');
+}
+
+async function enviarBufferComoFoto(buffer, caption, id, filename = 'ultimo_bump.jpg') {
+  const data = leerData();
+  const perfil = data[id];
+  const destino = perfil?.chat_id || CHAT_ID;
+
+  if (!FormData) {
+    await enviarTexto('⚠️ Falta form-data. Corre: npm install form-data', destino, id);
+    return false;
+  }
+
+  const form = new FormData();
+  form.append('chat_id', String(destino));
+  form.append('caption', caption);
+  form.append('reply_markup', JSON.stringify(tecladoTelegram(id)));
+  form.append('photo', buffer, {
+    filename,
+    contentType: 'image/jpeg'
+  });
+
+  const res = await apiTelegramForm('sendPhoto', form);
+
+  if (res && res.ok) return true;
+
+  await apiTelegram('sendMessage', {
+    chat_id: destino,
+    text: caption,
+    reply_markup: tecladoTelegram(id)
+  });
+
+  return false;
+}
+
+async function enviarFotoFlexible(photo, caption, id) {
+  if (esImagenBase64(photo)) {
+    try {
+      const buffer = bufferDesdeBase64(photo);
+      return await enviarBufferComoFoto(buffer, caption, id, `ultimo_bump_${id}.jpg`);
+    } catch (e) {
+      console.log('No se pudo enviar foto base64:', e.message);
+      return false;
+    }
+  }
+
+  return await enviarFoto(photo, caption, id);
 }
 
 // =========================
@@ -507,6 +597,11 @@ async function enviarUltimaActualizacion(id) {
 
 📊 Bump hoy: ${perfil.bump_hoy || 0}
 📈 Bump total: ${perfil.bump_total || 0}`;
+
+  if (perfil.foto_bump) {
+    const ok = await enviarFotoFlexible(perfil.foto_bump, caption, id);
+    if (ok) return;
+  }
 
   await enviarFoto(perfil.foto_modelo, caption, id);
 }
@@ -688,6 +783,8 @@ app.post('/registrar-evento', async (req, res) => {
     texto,
     foto_modelo,
     foto_pagina,
+    foto_bump,
+    foto_bump_base64,
     fotos_pagina,
     fin_plan,
     ultima_accion,
@@ -717,6 +814,11 @@ app.post('/registrar-evento', async (req, res) => {
 
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
+
+  const pruebaBump = foto_bump_base64 || foto_bump;
+  if (pruebaBump && typeof pruebaBump === 'string') {
+    perfil.foto_bump = pruebaBump;
+  }
 
   if (Array.isArray(fotos_pagina)) {
     const fotosLimpias = fotos_pagina
