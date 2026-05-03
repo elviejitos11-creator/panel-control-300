@@ -186,6 +186,7 @@ function asegurarPerfil(data, id) {
     data[id] = {
       nombre: `Perfil ${id}`,
       chat_id: '',
+      cliente_token: '',
       telefono: '',
       codigo: '',
       ubicacion: '',
@@ -211,6 +212,7 @@ function asegurarPerfil(data, id) {
     if (!('proximo_post_ts' in data[id])) data[id].proximo_post_ts = null;
     if (!Array.isArray(data[id].historial_fotos)) data[id].historial_fotos = [];
     if (!data[id].estado) data[id].estado = 'ACTIVA';
+    if (!('cliente_token' in data[id])) data[id].cliente_token = '';
   }
 }
 
@@ -504,10 +506,6 @@ async function enviarReglas(chatId = CHAT_ID) {
 // =========================
 // API LOCAL
 // =========================
-// =========================
-// API LOCAL
-// =========================
-
 app.get('/api/licencia/:id', (req, res) => {
   try {
     const id = req.params.id;
@@ -567,12 +565,10 @@ app.get('/api/licencia/:id', (req, res) => {
 });
 
 app.get('/api/estado/:id', (req, res) => {
-app.get('/api/estado/:id', (req, res) => {
   try {
     const data = leerData();
     const perfil = data[req.params.id];
 
-    // SOLO pausa si está guardado explícitamente como PAUSADA
     if (perfil && perfil.estado === 'PAUSADA') {
       return res.json({
         estado: 'PAUSADA',
@@ -580,7 +576,6 @@ app.get('/api/estado/:id', (req, res) => {
       });
     }
 
-    // Si falta perfil, si hay duda, si algo raro pasa => ACTIVA
     return res.json({
       estado: 'ACTIVA',
       motivo: 'Modo seguro: solo se pausa por orden explícita'
@@ -588,7 +583,6 @@ app.get('/api/estado/:id', (req, res) => {
   } catch (error) {
     console.log('Error en /api/estado/:id =>', error?.message || error);
 
-    // Ante cualquier fallo, JAMÁS apagar por defecto
     return res.json({
       estado: 'ACTIVA',
       motivo: 'Fallo del panel/lectura: se mantiene ACTIVA'
@@ -695,11 +689,11 @@ async function procesarCallback(q) {
   }
 
   if (data === 'reanudar_todas') {
-  reanudarTodasEnCola();
-  await responderCallback(callbackId, 'Reanudando en cola');
-  await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.', chatId);
-  return;
-}
+    reanudarTodasEnCola();
+    await responderCallback(callbackId, 'Reanudando en cola');
+    await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.', chatId);
+    return;
+  }
 
   if (data === 'reglas') {
     await responderCallback(callbackId, 'Reglas');
@@ -971,8 +965,9 @@ app.get('/', (req, res) => {
     </div>
     <script>
       setInterval(() => {
-  location.reload();
-}, 10000);
+        location.reload();
+      }, 10000);
+
       async function accionPerfil(id, accion) {
         await fetch('/accion', {
           method: 'POST',
@@ -1027,6 +1022,9 @@ app.get('/nuevo', (req, res) => {
 
         <label>Chat ID</label>
         <input name="chat_id" />
+
+        <label>Cliente token</label>
+        <input name="cliente_token" />
 
         <label>Teléfono</label>
         <input name="telefono" />
@@ -1105,6 +1103,9 @@ app.get('/editar/:id', (req, res) => {
         <label>Chat ID</label>
         <input name="chat_id" value="${p.chat_id || ''}" />
 
+        <label>Cliente token</label>
+        <input name="cliente_token" value="${p.cliente_token || ''}" />
+
         <label>Teléfono</label>
         <input name="telefono" value="${p.telefono || ''}" />
 
@@ -1150,6 +1151,7 @@ app.post('/guardar-perfil', (req, res) => {
     id,
     nombre,
     chat_id,
+    cliente_token,
     telefono,
     codigo,
     ubicacion,
@@ -1170,6 +1172,7 @@ app.post('/guardar-perfil', (req, res) => {
 
   data[id].nombre = nombre || `Perfil ${id}`;
   data[id].chat_id = chat_id || '';
+  data[id].cliente_token = cliente_token || '';
   data[id].telefono = telefono || '';
   data[id].codigo = codigo || '';
   data[id].ubicacion = ubicacion || '';
@@ -1271,7 +1274,7 @@ async function procesarColaReanudacion() {
   if (colaReanudacion.length > 0) {
     colaTimeout = setTimeout(() => {
       procesarColaReanudacion();
-    }, 45000); // 45 segundos entre perfiles
+    }, 45000);
   } else {
     cancelarColaReanudacion();
   }
@@ -1287,6 +1290,7 @@ function reanudarTodasEnCola() {
     procesarColaReanudacion();
   }
 }
+
 async function cicloPrincipal() {
   if (cicloEnProceso) {
     setTimeout(cicloPrincipal, 3000);
