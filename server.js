@@ -504,6 +504,69 @@ async function enviarReglas(chatId = CHAT_ID) {
 // =========================
 // API LOCAL
 // =========================
+// =========================
+// API LOCAL
+// =========================
+
+app.get('/api/licencia/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const token = req.query.token || '';
+
+    const data = leerData();
+    const perfil = data[id];
+
+    if (!perfil) {
+      return res.json({
+        ok: false,
+        estado: 'NO_EXISTE',
+        motivo: 'Perfil no existe'
+      });
+    }
+
+    if (perfil.cliente_token && token !== perfil.cliente_token) {
+      return res.json({
+        ok: false,
+        estado: 'TOKEN_INVALIDO',
+        motivo: 'Token inválido'
+      });
+    }
+
+    if (perfil.estado === 'PAUSADA') {
+      return res.json({
+        ok: false,
+        estado: 'PAUSADA',
+        motivo: 'Cliente pausado desde el panel'
+      });
+    }
+
+    const fin = new Date(perfil.fin_plan);
+
+    if (perfil.fin_plan && !isNaN(fin.getTime()) && fin <= new Date()) {
+      return res.json({
+        ok: false,
+        estado: 'VENCIDA',
+        motivo: 'Plan vencido'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      estado: 'ACTIVA',
+      motivo: 'Licencia activa'
+    });
+  } catch (error) {
+    console.log('Error en /api/licencia/:id =>', error?.message || error);
+
+    return res.json({
+      ok: false,
+      estado: 'ERROR',
+      motivo: 'Error verificando licencia'
+    });
+  }
+});
+
+app.get('/api/estado/:id', (req, res) => {
 app.get('/api/estado/:id', (req, res) => {
   try {
     const data = leerData();
