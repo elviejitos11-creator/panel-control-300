@@ -312,8 +312,7 @@ function tecladoTelegram(id) {
         { text: '📸 Ver una foto', callback_data: `foto_${id}` }
       ],
       [
-        { text: '📂 Ver últimas 3', callback_data: `fotos3_${id}` },
-        { text: '🗂 Ver últimas 4', callback_data: `fotos4_${id}` }
+        { text: '🗂 Ver álbum completo', callback_data: `album_${id}` }
       ]
     ]
   };
@@ -497,6 +496,45 @@ async function enviarUltimasFotos(id, cantidad) {
   for (let i = 0; i < lista.length; i++) {
     await enviarFoto(lista[i], `📂 Foto ${i + 1} de ${lista.length}`, id);
   }
+}
+
+async function enviarAlbumCompleto(id) {
+  const data = leerData();
+  const perfil = data[id];
+  if (!perfil) return;
+
+  const destino = perfil?.chat_id || CHAT_ID;
+  const fotos = Array.isArray(perfil.historial_fotos) ? perfil.historial_fotos : [];
+
+  if (fotos.length === 0) {
+    await enviarTexto(`⚠️ No hay fotos guardadas para el perfil ${id}`, destino, id);
+    return;
+  }
+
+  const lista = fotos.filter(Boolean).slice(0, 10);
+
+  if (lista.length === 1) {
+    await enviarFoto(lista[0], `🗂 Álbum completo\nFoto 1 de 1`, id);
+    return;
+  }
+
+  const media = lista.map((foto, index) => ({
+    type: 'photo',
+    media: foto,
+    caption: index === 0 ? `🗂 Álbum completo\n${lista.length} fotos guardadas` : undefined
+  }));
+
+  const res = await apiTelegram('sendMediaGroup', {
+    chat_id: destino,
+    media
+  });
+
+  if (!res || !res.ok) {
+    await enviarUltimasFotos(id, 10);
+    return;
+  }
+
+  await enviarTexto('🗂 Álbum completo enviado.', destino, id);
 }
 
 async function enviarReglas(chatId = CHAT_ID) {
@@ -744,6 +782,12 @@ async function procesarCallback(q) {
   if (accion === 'foto') {
     await responderCallback(callbackId, 'Foto enviada');
     await enviarFotoPagina(id);
+    return;
+  }
+
+  if (accion === 'album') {
+    await responderCallback(callbackId, 'Enviando álbum completo...');
+    await enviarAlbumCompleto(id);
     return;
   }
 
