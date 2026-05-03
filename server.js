@@ -39,6 +39,23 @@ let telegramEnProceso = false;
 let cicloEnProceso = false;
 
 // =========================
+// COLA DE REANUDACIÓN
+// =========================
+let colaReanudacion = null;
+let colaTimeout = null;
+let colaVersion = 0;
+
+function cancelarColaReanudacion() {
+  if (colaTimeout) {
+    clearTimeout(colaTimeout);
+    colaTimeout = null;
+  }
+
+  colaReanudacion = null;
+  colaVersion += 1;
+}
+
+// =========================
 // UTILIDADES SEGURAS JSON
 // =========================
 function existeArchivoSeguro(file) {
@@ -404,6 +421,11 @@ function cambiarEstadoPerfil(id, estado) {
   if (!data[id]) return false;
 
   asegurarPerfil(data, id);
+
+  if (estado === 'PAUSADA' && Array.isArray(colaReanudacion)) {
+    colaReanudacion = colaReanudacion.filter(x => String(x) !== String(id));
+  }
+
   data[id].estado = estado;
   data[id].ultima_hora = horaActual();
   data[id].ultima_accion = estado === 'ACTIVA' ? 'Reanudado' : 'Pausado';
@@ -412,7 +434,12 @@ function cambiarEstadoPerfil(id, estado) {
 }
 
 function cambiarEstadoTodos(estado) {
+  if (estado === 'PAUSADA') {
+    cancelarColaReanudacion();
+  }
+
   const data = leerData();
+
   for (const id of Object.keys(data)) {
     asegurarPerfil(data, id);
     data[id].estado = estado;
@@ -420,6 +447,7 @@ function cambiarEstadoTodos(estado) {
     data[id].ultima_accion =
       estado === 'ACTIVA' ? 'Reanudado globalmente' : 'Pausado globalmente';
   }
+
   guardarData(data);
 }
 
@@ -765,9 +793,10 @@ async function procesarCallback(q) {
   const chatId = q.message?.chat?.id || CHAT_ID;
 
   if (data === 'pausar_todas') {
+    cancelarColaReanudacion();
     cambiarEstadoTodos('PAUSADA');
     await responderCallback(callbackId, 'Todas pausadas');
-    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA.', chatId);
+    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.', chatId);
     return;
   }
 
@@ -1324,11 +1353,12 @@ app.post('/accion-global', async (req, res) => {
   const { accion } = req.body;
 
   if (accion === 'pausar_todas') {
+    cancelarColaReanudacion();
     cambiarEstadoTodos('PAUSADA');
-    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA.');
+    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.');
   } else if (accion === 'reanudar_todas') {
     reanudarTodasEnCola();
-    await enviarTexto('▶️ Todas las páginas quedaron en ACTIVA.');
+    await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.');
   }
 
   res.redirect('/');
@@ -1337,18 +1367,9 @@ app.post('/accion-global', async (req, res) => {
 // =========================
 // CICLO SEGURO
 // =========================
-let colaReanudacion = null;
-let colaTimeout = null;
+async function procesarColaReanudacion(versionActiva) {
+  if (versionActiva !== colaVersion) return;
 
-function cancelarColaReanudacion() {
-  if (colaTimeout) {
-    clearTimeout(colaTimeout);
-    colaTimeout = null;
-  }
-  colaReanudacion = null;
-}
-
-async function procesarColaReanudacion() {
   if (!colaReanudacion || colaReanudacion.length === 0) {
     cancelarColaReanudacion();
     return;
@@ -1356,13 +1377,17 @@ async function procesarColaReanudacion() {
 
   const id = colaReanudacion.shift();
 
+  if (versionActiva !== colaVersion) return;
+
   cambiarEstadoPerfil(id, 'ACTIVA');
   await enviarTexto(`▶️ Perfil ${id} reanudado automáticamente en cola.`);
   await enviarEstadoPerfil(id);
 
-  if (colaReanudacion.length > 0) {
+  if (versionActiva !== colaVersion) return;
+
+  if (colaReanudacion && colaReanudacion.length > 0) {
     colaTimeout = setTimeout(() => {
-      procesarColaReanudacion();
+      procesarColaReanudacion(versionActiva);
     }, 45000);
   } else {
     cancelarColaReanudacion();
@@ -1375,8 +1400,10 @@ function reanudarTodasEnCola() {
   const data = leerData();
   colaReanudacion = Object.keys(data);
 
+  const versionActiva = colaVersion;
+
   if (colaReanudacion.length > 0) {
-    procesarColaReanudacion();
+    procesarColaReanudacion(versionActiva);
   }
 }
 
