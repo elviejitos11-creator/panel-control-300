@@ -609,6 +609,51 @@ function resetearAccesoPerfil(id) {
   return nuevoToken;
 }
 
+function limpiarProgramacionesPerfil(id) {
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  const antes = state.schedules.length;
+
+  state.schedules = state.schedules.filter(item => {
+    return String(item.id) !== String(id);
+  });
+
+  const borradas = antes - state.schedules.length;
+
+  if (borradas > 0) {
+    guardarState(state);
+  }
+
+  return borradas;
+}
+
+function borrarPerfil(id) {
+  const data = leerData();
+
+  if (!data[id]) return false;
+
+  // Quitar de la cola de reanudación si estaba pendiente
+  if (Array.isArray(colaReanudacion)) {
+    colaReanudacion = colaReanudacion.filter(x => String(x) !== String(id));
+
+    if (colaReanudacion.length === 0) {
+      cancelarColaReanudacion();
+    }
+  }
+
+  // Borrar programaciones pendientes de ese perfil
+  limpiarProgramacionesPerfil(id);
+
+  // Borrar perfil completo del data.json
+  delete data[id];
+
+  return guardarData(data);
+}
+
 function programarAccion(id, accion, minutos = 30) {
   const state = leerState();
   state.schedules.push({
@@ -1243,6 +1288,7 @@ app.get('/', (req, res) => {
         <button class="info" onclick="accionPerfil('${id}','foto')">📸 Ver foto</button>
         <button class="muted" onclick="accionPerfil('${id}','reiniciar')">🔄 Reiniciar bot</button>
         <a class="btn warning" href="/editar/${id}">✏️ Editar</a>
+        <button class="danger" onclick="accionPerfil('${id}','borrarperfil')">🗑️ Borrar perfil</button>
       </div>
     `;
   }
@@ -1258,6 +1304,14 @@ app.get('/', (req, res) => {
         if (accion === 'resetacceso') {
           const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores y la clave vieja dejará de funcionar.');
           if (!ok) return;
+        }
+
+        if (accion === 'borrarperfil') {
+          const ok = confirm('¿Seguro que quieres BORRAR este perfil completo? Esta acción no se puede deshacer.');
+          if (!ok) return;
+
+          const ok2 = confirm('Última confirmación: se borrará el perfil, fotos, datos, token y programaciones pendientes.');
+          if (!ok2) return;
         }
 
         await fetch('/accion', {
@@ -1508,6 +1562,14 @@ app.post('/accion', async (req, res) => {
 
     if (nuevoToken) {
       await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
+    }
+  } else if (accion === 'borrarperfil') {
+    const ok = borrarPerfil(id);
+
+    if (ok) {
+      await enviarTexto(`🗑️ Perfil borrado correctamente\nPerfil eliminado: ${id}`);
+    } else {
+      await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
     }
   } else if (accion === 'progpausa') {
     programarAccion(id, 'PAUSADA', 30);
