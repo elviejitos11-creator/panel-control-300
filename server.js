@@ -206,6 +206,13 @@ function fechaHoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function generarTokenAcceso() {
+  const parte1 = Math.floor(1000 + Math.random() * 9000);
+  const parte2 = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const parte3 = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${parte1}-${parte2}-${parte3}`;
+}
+
 function asegurarPerfil(data, id) {
   if (!data[id]) {
     data[id] = {
@@ -322,6 +329,23 @@ function convertirFinPlan(valor) {
   }
 
   return valor;
+}
+
+function tokenDesdeRequest(req) {
+  return String(
+    req.query?.token ||
+    req.body?.token ||
+    req.headers['x-cliente-token'] ||
+    ''
+  ).trim();
+}
+
+function tokenValidoParaPerfil(req, perfil) {
+  const token = tokenDesdeRequest(req);
+
+  if (!perfil.cliente_token) return true;
+
+  return token === String(perfil.cliente_token).trim();
 }
 
 // =========================
@@ -539,6 +563,26 @@ function cambiarEstadoTodos(estado) {
   }
 
   guardarData(data);
+}
+
+function resetearAccesoPerfil(id) {
+  const data = leerData();
+  if (!data[id]) return null;
+
+  asegurarPerfil(data, id);
+
+  const nuevoToken = generarTokenAcceso();
+
+  data[id].cliente_token = nuevoToken;
+  data[id].estado = 'PAUSADA';
+  data[id].ultima_hora = horaActual();
+  data[id].ultima_accion = `Acceso reseteado. Nueva clave: ${nuevoToken}`;
+
+  const ok = guardarData(data);
+
+  if (!ok) return null;
+
+  return nuevoToken;
 }
 
 function programarAccion(id, accion, minutos = 30) {
@@ -776,6 +820,7 @@ app.get('/api/estado/:id', (req, res) => {
 app.post('/registrar-evento', async (req, res) => {
   const {
     id,
+    token,
     tipo = 'silencioso',
     telefono,
     codigo,
@@ -802,6 +847,14 @@ app.post('/registrar-evento', async (req, res) => {
   asegurarPerfil(data, id);
 
   const perfil = data[id];
+
+  if (!tokenValidoParaPerfil(req, perfil)) {
+    return res.status(403).json({
+      ok: false,
+      estado: 'TOKEN_INVALIDO',
+      error: 'Token inválido para registrar evento'
+    });
+  }
 
   if (telefono) perfil.telefono = telefono;
   if (codigo) perfil.codigo = codigo;
@@ -977,18 +1030,6 @@ async function procesarCallback(q) {
     return;
   }
 
-  if (accion === 'fotos3') {
-    await responderCallback(callbackId, 'Enviando 3 fotos...');
-    await enviarUltimasFotos(id, 3);
-    return;
-  }
-
-  if (accion === 'fotos4') {
-    await responderCallback(callbackId, 'Enviando 4 fotos...');
-    await enviarUltimasFotos(id, 4);
-    return;
-  }
-
   await responderCallback(callbackId, 'No manejado');
 }
 
@@ -1157,6 +1198,7 @@ app.get('/', (req, res) => {
         <div class="row"><strong>${p.nombre}</strong></div>
         <div class="row">🆔 Perfil: ${id}</div>
         <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
+        <div class="row">🔑 Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
         <div class="row">📞 ${p.telefono}</div>
         <div class="row">🆔 Código: ${p.codigo}</div>
         <div class="row">📍 ${p.ubicacion}</div>
@@ -1171,6 +1213,7 @@ app.get('/', (req, res) => {
 
         <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
         <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
+        <button class="warning" onclick="accionPerfil('${id}','resetacceso')">🔐 Resetear acceso</button>
         <button class="muted" onclick="accionPerfil('${id}','progpausa')">⏰ Programar pausa</button>
         <button class="muted" onclick="accionPerfil('${id}','progreanudar')">⏰ Programar reanudar</button>
         <button class="info" onclick="accionPerfil('${id}','ultima')">🕒 Último bump</button>
@@ -1189,6 +1232,11 @@ app.get('/', (req, res) => {
       }, 10000);
 
       async function accionPerfil(id, accion) {
+        if (accion === 'resetacceso') {
+          const ok = confirm('¿Seguro que quieres resetear el acceso de este perfil? La clave vieja dejará de funcionar.');
+          if (!ok) return;
+        }
+
         await fetch('/accion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1243,7 +1291,7 @@ app.get('/nuevo', (req, res) => {
         <label>Chat ID</label>
         <input name="chat_id" />
 
-        <label>Cliente token</label>
+        <label>Cliente token / Clave de acceso</label>
         <input name="cliente_token" />
 
         <label>Teléfono</label>
@@ -1323,7 +1371,7 @@ app.get('/editar/:id', (req, res) => {
         <label>Chat ID</label>
         <input name="chat_id" value="${p.chat_id || ''}" />
 
-        <label>Cliente token</label>
+        <label>Cliente token / Clave de acceso</label>
         <input name="cliente_token" value="${p.cliente_token || ''}" />
 
         <label>Teléfono</label>
@@ -1398,8 +1446,8 @@ app.post('/guardar-perfil', (req, res) => {
   data[id].ubicacion = ubicacion || '';
   data[id].texto = texto || '';
   data[id].estado = estado || 'ACTIVA';
-  data[id].foto_modelo = foto_modelo || 'https://picsum.photos/400/260';
-  data[id].foto_pagina = foto_pagina || 'https://picsum.photos/420/280';
+  data[id].foto_modelo = foto_modelo || data[id].foto_modelo || 'https://picsum.photos/400/260';
+  data[id].foto_pagina = foto_pagina || data[id].foto_pagina || 'https://picsum.photos/420/280';
   data[id].proximo_post = proximo_post || '16m';
   data[id].fin_plan = convertirFinPlan(fin_plan || '7 días');
   data[id].ultima_hora = horaActual();
@@ -1432,6 +1480,12 @@ app.post('/accion', async (req, res) => {
   } else if (accion === 'reanudar') {
     cambiarEstadoPerfil(id, 'ACTIVA');
     await enviarEstadoPerfil(id);
+  } else if (accion === 'resetacceso') {
+    const nuevoToken = resetearAccesoPerfil(id);
+
+    if (nuevoToken) {
+      await enviarTexto(`🔐 Acceso reseteado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
+    }
   } else if (accion === 'progpausa') {
     programarAccion(id, 'PAUSADA', 30);
     await enviarTexto(`⏰ Se programó una pausa para ${data[id].nombre} en 30 minutos.`);
