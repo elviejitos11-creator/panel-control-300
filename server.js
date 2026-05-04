@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Cliente-Token");
   next();
 });
 
@@ -247,6 +247,8 @@ function asegurarPerfil(data, id) {
     if (!data[id].estado) data[id].estado = 'ACTIVA';
     if (!('cliente_token' in data[id])) data[id].cliente_token = '';
     if (!('foto_bump' in data[id])) data[id].foto_bump = '';
+    if (!('foto_modelo' in data[id])) data[id].foto_modelo = 'https://picsum.photos/400/260';
+    if (!('foto_pagina' in data[id])) data[id].foto_pagina = 'https://picsum.photos/420/280';
   }
 }
 
@@ -575,8 +577,30 @@ function resetearAccesoPerfil(id) {
 
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
+
+  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
+  data[id].telefono = '';
+  data[id].codigo = '';
+  data[id].ubicacion = '';
+  data[id].texto = '';
+
+  // BORRAR FOTOS VIEJAS
+  data[id].foto_modelo = 'https://picsum.photos/400/260';
+  data[id].foto_pagina = 'https://picsum.photos/420/280';
+  data[id].foto_bump = '';
+  data[id].historial_fotos = [];
+
+  // RESETEAR CONTADORES
+  data[id].bump_hoy = 0;
+  data[id].bump_total = 0;
+  data[id].bump_fecha = '';
+  data[id].proximo_post = '16m';
+  data[id].proximo_post_ts = null;
+
+  // LIMPIAR EVENTOS
+  data[id].ultimo_evento = null;
   data[id].ultima_hora = horaActual();
-  data[id].ultima_accion = `Acceso reseteado. Nueva clave: ${nuevoToken}`;
+  data[id].ultima_accion = `Acceso reseteado y perfil limpiado. Nueva clave: ${nuevoToken}`;
 
   const ok = guardarData(data);
 
@@ -820,7 +844,6 @@ app.get('/api/estado/:id', (req, res) => {
 app.post('/registrar-evento', async (req, res) => {
   const {
     id,
-    token,
     tipo = 'silencioso',
     telefono,
     codigo,
@@ -1199,9 +1222,9 @@ app.get('/', (req, res) => {
         <div class="row">🆔 Perfil: ${id}</div>
         <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
         <div class="row">🔑 Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
-        <div class="row">📞 ${p.telefono}</div>
-        <div class="row">🆔 Código: ${p.codigo}</div>
-        <div class="row">📍 ${p.ubicacion}</div>
+        <div class="row">📞 ${p.telefono || 'N/A'}</div>
+        <div class="row">🆔 Código: ${p.codigo || 'N/A'}</div>
+        <div class="row">📍 ${p.ubicacion || 'N/A'}</div>
         <div class="row estado">🟢 ${p.estado}</div>
         <div class="row">🕒 ${p.ultima_hora}</div>
         <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
@@ -1233,7 +1256,7 @@ app.get('/', (req, res) => {
 
       async function accionPerfil(id, accion) {
         if (accion === 'resetacceso') {
-          const ok = confirm('¿Seguro que quieres resetear el acceso de este perfil? La clave vieja dejará de funcionar.');
+          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores y la clave vieja dejará de funcionar.');
           if (!ok) return;
         }
 
@@ -1484,7 +1507,7 @@ app.post('/accion', async (req, res) => {
     const nuevoToken = resetearAccesoPerfil(id);
 
     if (nuevoToken) {
-      await enviarTexto(`🔐 Acceso reseteado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
+      await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
     }
   } else if (accion === 'progpausa') {
     programarAccion(id, 'PAUSADA', 30);
