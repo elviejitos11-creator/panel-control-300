@@ -214,6 +214,15 @@ function generarTokenAcceso() {
   return `${parte1}-${parte2}-${parte3}`;
 }
 
+function escaparHtml(valor) {
+  return String(valor || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function asegurarPerfil(data, id) {
   if (!data[id]) {
     data[id] = {
@@ -416,6 +425,58 @@ function programarAccionGlobal(accion, textoHora) {
     ejecutarEn,
     fecha: new Date(ejecutarEn).toLocaleString()
   };
+}
+
+function htmlProgramacionesPendientes() {
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  const pendientes = state.schedules
+    .filter(item => item && item.ejecutarEn && Date.now() < Number(item.ejecutarEn))
+    .sort((a, b) => Number(a.ejecutarEn) - Number(b.ejecutarEn));
+
+  if (pendientes.length === 0) {
+    return `
+      <div class="programacionBox">
+        <strong>⏰ Programaciones pendientes</strong>
+        <div class="small">No hay programaciones guardadas ahora mismo.</div>
+      </div>
+    `;
+  }
+
+  const items = pendientes.map(item => {
+    const accionTxt = item.accion === 'PAUSADA'
+      ? '⏸ PAUSAR TODAS'
+      : item.accion === 'ACTIVA'
+        ? '▶️ REANUDAR TODAS'
+        : escaparHtml(item.accion);
+
+    const destino = item.global || String(item.id) === 'TODAS'
+      ? 'TODAS'
+      : `Perfil ${escaparHtml(item.id)}`;
+
+    const fecha = new Date(Number(item.ejecutarEn)).toLocaleString();
+
+    return `
+      <div class="programacionItem">
+        <div><strong>${accionTxt}</strong></div>
+        <div>Destino: ${destino}</div>
+        <div>Hora puesta: ${escaparHtml(item.horaTexto || 'N/A')}</div>
+        <div>Se ejecuta: ${escaparHtml(fecha)}</div>
+        <div>Falta: ${escaparHtml(tiempoRestante(Number(item.ejecutarEn)))}</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="programacionBox">
+      <strong>⏰ Programaciones pendientes</strong>
+      ${items}
+    </div>
+  `;
 }
 
 // =========================
@@ -646,22 +707,26 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
+  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
+  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
+  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
+  // LIMPIAR EVENTOS
   data[id].ultimo_evento = null;
   data[id].ultima_hora = horaActual();
   data[id].ultima_accion = `Acceso reseteado y perfil limpiado. Nueva clave: ${nuevoToken}`;
@@ -700,6 +765,7 @@ function borrarPerfil(id) {
 
   if (!data[id]) return false;
 
+  // Quitar de la cola de reanudación si estaba pendiente
   if (Array.isArray(colaReanudacion)) {
     colaReanudacion = colaReanudacion.filter(x => String(x) !== String(id));
 
@@ -708,8 +774,10 @@ function borrarPerfil(id) {
     }
   }
 
+  // Borrar programaciones pendientes de ese perfil
   limpiarProgramacionesPerfil(id);
 
+  // Borrar perfil completo del data.json
   delete data[id];
 
   return guardarData(data);
@@ -1364,6 +1432,8 @@ app.get('/', (req, res) => {
       .card { background:#132f4c; padding:20px; border-radius:14px; }
       .row { margin:6px 0; }
       .estado { font-weight:bold; }
+      .programacionBox { background:#10263d; border:1px solid #4f86c6; padding:14px; border-radius:14px; margin:14px 0 18px 0; }
+      .programacionItem { background:#183a5c; padding:10px; border-radius:10px; margin-top:10px; }
       button, .btn {
         margin:6px 6px 0 0; padding:10px 14px; border:none; border-radius:10px;
         cursor:pointer; font-weight:bold; text-decoration:none; display:inline-block;
@@ -1388,6 +1458,9 @@ app.get('/', (req, res) => {
       <button class="success" onclick="accionGlobal('reanudar_todas')">▶️ Reanudar todas</button>
       <a class="btn warning" href="/nuevo">➕ Nuevo perfil</a>
     </div>
+
+    ${htmlProgramacionesPendientes()}
+
     <div class="grid">
   `;
 
@@ -1397,21 +1470,21 @@ app.get('/', (req, res) => {
 
     html += `
       <div class="card">
-        <div class="row"><strong>${p.nombre}</strong></div>
-        <div class="row">🆔 Perfil: ${id}</div>
-        <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
-        <div class="row">🔑 Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
-        <div class="row">📞 ${p.telefono || 'N/A'}</div>
-        <div class="row">🆔 Código: ${p.codigo || 'N/A'}</div>
-        <div class="row">📍 ${p.ubicacion || 'N/A'}</div>
-        <div class="row estado">🟢 ${p.estado}</div>
-        <div class="row">🕒 ${p.ultima_hora}</div>
-        <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
-        <div class="row">📅 ${tiempoRestantePlan(p.fin_plan)}</div>
+        <div class="row"><strong>${escaparHtml(p.nombre)}</strong></div>
+        <div class="row">🆔 Perfil: ${escaparHtml(id)}</div>
+        <div class="row">💬 Chat ID: ${escaparHtml(p.chat_id || 'N/A')}</div>
+        <div class="row">🔑 Cliente token: ${escaparHtml(p.cliente_token || 'SIN CLAVE')}</div>
+        <div class="row">📞 ${escaparHtml(p.telefono || 'N/A')}</div>
+        <div class="row">🆔 Código: ${escaparHtml(p.codigo || 'N/A')}</div>
+        <div class="row">📍 ${escaparHtml(p.ubicacion || 'N/A')}</div>
+        <div class="row estado">🟢 ${escaparHtml(p.estado)}</div>
+        <div class="row">🕒 ${escaparHtml(p.ultima_hora)}</div>
+        <div class="row">⏱ Próximo bump: ${escaparHtml(p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A'))}</div>
+        <div class="row">📅 ${escaparHtml(tiempoRestantePlan(p.fin_plan))}</div>
         <div class="row">📊 Bump hoy: ${p.bump_hoy || 0}</div>
         <div class="row">📈 Bump total: ${p.bump_total || 0}</div>
         <div class="row">🖼 Historial fotos: ${totalFotos}</div>
-        <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
+        <div class="row small">Última acción: ${escaparHtml(p.ultima_accion || 'N/A')}</div>
 
         <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
         <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
@@ -1465,6 +1538,7 @@ app.get('/', (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, accion, hora })
         });
+
         location.reload();
       }
 
@@ -1589,25 +1663,25 @@ app.get('/editar/:id', (req, res) => {
         <input type="hidden" name="id" value="${id}" />
 
         <label>Nombre</label>
-        <input name="nombre" value="${p.nombre || ''}" />
+        <input name="nombre" value="${escaparHtml(p.nombre || '')}" />
 
         <label>Chat ID</label>
-        <input name="chat_id" value="${p.chat_id || ''}" />
+        <input name="chat_id" value="${escaparHtml(p.chat_id || '')}" />
 
         <label>Cliente token / Clave de acceso</label>
-        <input name="cliente_token" value="${p.cliente_token || ''}" />
+        <input name="cliente_token" value="${escaparHtml(p.cliente_token || '')}" />
 
         <label>Teléfono</label>
-        <input name="telefono" value="${p.telefono || ''}" />
+        <input name="telefono" value="${escaparHtml(p.telefono || '')}" />
 
         <label>Código</label>
-        <input name="codigo" value="${p.codigo || ''}" />
+        <input name="codigo" value="${escaparHtml(p.codigo || '')}" />
 
         <label>Ubicación</label>
-        <input name="ubicacion" value="${p.ubicacion || ''}" />
+        <input name="ubicacion" value="${escaparHtml(p.ubicacion || '')}" />
 
         <label>Texto</label>
-        <textarea name="texto">${p.texto || ''}</textarea>
+        <textarea name="texto">${escaparHtml(p.texto || '')}</textarea>
 
         <label>Estado</label>
         <select name="estado">
@@ -1616,16 +1690,16 @@ app.get('/editar/:id', (req, res) => {
         </select>
 
         <label>Foto modelo (URL o file_id)</label>
-        <input name="foto_modelo" value="${p.foto_modelo || ''}" />
+        <input name="foto_modelo" value="${escaparHtml(p.foto_modelo || '')}" />
 
         <label>Foto página (URL o file_id)</label>
-        <input name="foto_pagina" value="${p.foto_pagina || ''}" />
+        <input name="foto_pagina" value="${escaparHtml(p.foto_pagina || '')}" />
 
         <label>Próximo post</label>
-        <input name="proximo_post" value="${p.proximo_post || ''}" />
+        <input name="proximo_post" value="${escaparHtml(p.proximo_post || '')}" />
 
         <label>Fin de plan</label>
-        <input name="fin_plan" value="${p.fin_plan || ''}" />
+        <input name="fin_plan" value="${escaparHtml(p.fin_plan || '')}" />
 
         <button class="success" type="submit">Guardar cambios</button>
         <a class="muted" href="/">Volver</a>
