@@ -40,6 +40,10 @@ const STATE_FILE = path.join(__dirname, 'bot_state.json');
 const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
 const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
 
+// programación separada para que NO se borre al abrir panel ni al revisar Telegram
+const PROGRAMACIONES_FILE = path.join(__dirname, 'programaciones.json');
+const PROGRAMACIONES_BACKUP_FILE = path.join(__dirname, 'programaciones.backup.json');
+
 // =========================
 // BLOQUEOS DE CICLO
 // =========================
@@ -192,12 +196,43 @@ function leerState() {
   );
 }
 
+function leerProgramaciones() {
+  const data = leerJSONSeguro(
+    PROGRAMACIONES_FILE,
+    PROGRAMACIONES_BACKUP_FILE,
+    { items: [] },
+    { protegerContraVacio: false }
+  );
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { items: [] };
+  }
+
+  if (!Array.isArray(data.items)) {
+    data.items = [];
+  }
+
+  return data;
+}
+
 function guardarData(data) {
   return guardarJSONSeguro(DATA_FILE, DATA_BACKUP_FILE, data);
 }
 
 function guardarState(state) {
   return guardarJSONSeguro(STATE_FILE, STATE_BACKUP_FILE, state);
+}
+
+function guardarProgramaciones(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    data = { items: [] };
+  }
+
+  if (!Array.isArray(data.items)) {
+    data.items = [];
+  }
+
+  return guardarJSONSeguro(PROGRAMACIONES_FILE, PROGRAMACIONES_BACKUP_FILE, data);
 }
 
 function horaActual() {
@@ -364,11 +399,10 @@ function tokenValidoParaPerfil(req, perfil) {
 }
 
 // =========================
-// PROGRAMAR POR HORA
+// PROGRAMACIÓN POR HORA
 // =========================
 function calcularHoraProgramada(textoHora) {
   const texto = String(textoHora || '').trim().toUpperCase();
-
   const m = texto.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
 
   if (!m) return null;
@@ -395,51 +429,15 @@ function calcularHoraProgramada(textoHora) {
   return fecha.getTime();
 }
 
-function esProgramacionGlobal(item, accion = null) {
-  if (!item) return false;
-
-  const esGlobal = item.global || String(item.id) === 'TODAS';
-
-  if (!esGlobal) return false;
-
-  if (accion && item.accion !== accion) return false;
-
-  return true;
-}
-
 function obtenerProgramacionGlobal(accion) {
-  const state = leerState();
+  const data = leerProgramaciones();
 
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
-
-  const pendientes = state.schedules
-    .filter(item => esProgramacionGlobal(item, accion))
+  const pendientes = data.items
+    .filter(item => item && item.accion === accion)
     .filter(item => item.ejecutarEn && Date.now() < Number(item.ejecutarEn))
     .sort((a, b) => Number(a.ejecutarEn) - Number(b.ejecutarEn));
 
   return pendientes[0] || null;
-}
-
-function quitarProgramacionGlobal(accion) {
-  const state = leerState();
-
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
-
-  const antes = state.schedules.length;
-
-  state.schedules = state.schedules.filter(item => {
-    return !esProgramacionGlobal(item, accion);
-  });
-
-  state.esperandoProgramacion = null;
-
-  guardarState(state);
-
-  return antes - state.schedules.length;
 }
 
 function textoProgramacionActual(accion) {
@@ -449,9 +447,9 @@ function textoProgramacionActual(accion) {
     return 'No programado';
   }
 
-  const fecha = new Date(Number(item.ejecutarEn)).toLocaleString();
-
-  return `${item.horaTexto || 'N/A'}\nSe ejecuta: ${fecha}\nFalta: ${tiempoRestante(Number(item.ejecutarEn))}`;
+  return `${item.horaTexto || 'N/A'}
+Se ejecuta: ${new Date(Number(item.ejecutarEn)).toLocaleString()}
+Falta: ${tiempoRestante(Number(item.ejecutarEn))}`;
 }
 
 function resumenProgramacionesTelegram() {
@@ -467,14 +465,13 @@ ${textoProgramacionActual('ACTIVA')}`;
 function mensajeProgramarTelegram(accion) {
   const titulo = accion === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
   const ejemplo = accion === 'PAUSADA' ? '06:00 o 6:00 AM' : '20:00 o 8:00 PM';
-  const actual = textoProgramacionActual(accion);
 
   return `⏰ PROGRAMACIÓN
 
 ${titulo}
 
 Estado actual:
-${actual}
+${textoProgramacionActual(accion)}
 
 Para poner o cambiar la hora, escribe una hora.
 Ejemplo: ${ejemplo}
@@ -493,28 +490,19 @@ function programarAccionGlobal(accion, textoHora) {
     };
   }
 
-  const state = leerState();
+  const data = leerProgramaciones();
 
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
+  // No duplicar: se reemplaza solo la programación de esa acción.
+  data.items = data.items.filter(item => item.accion !== accion);
 
-  // No duplicar: si ya había una pausa/reanudación global, se reemplaza.
-  state.schedules = state.schedules.filter(item => {
-    return !esProgramacionGlobal(item, accion);
-  });
-
-  state.esperandoProgramacion = null;
-
-  state.schedules.push({
+  data.items.push({
     id: 'TODAS',
-    global: true,
     accion,
     horaTexto: String(textoHora || '').trim(),
     ejecutarEn
   });
 
-  guardarState(state);
+  guardarProgramaciones(data);
 
   return {
     ok: true,
@@ -523,14 +511,21 @@ function programarAccionGlobal(accion, textoHora) {
   };
 }
 
+function cancelarProgramacionGlobal(accion) {
+  const data = leerProgramaciones();
+  const antes = data.items.length;
+
+  data.items = data.items.filter(item => item.accion !== accion);
+
+  guardarProgramaciones(data);
+
+  return antes - data.items.length;
+}
+
 function htmlProgramacionesPendientes() {
-  const state = leerState();
+  const data = leerProgramaciones();
 
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
-
-  const pendientes = state.schedules
+  const pendientes = data.items
     .filter(item => item && item.ejecutarEn && Date.now() < Number(item.ejecutarEn))
     .sort((a, b) => Number(a.ejecutarEn) - Number(b.ejecutarEn));
 
@@ -546,20 +541,13 @@ function htmlProgramacionesPendientes() {
   const items = pendientes.map(item => {
     const accionTxt = item.accion === 'PAUSADA'
       ? '⏸ PAUSAR TODAS'
-      : item.accion === 'ACTIVA'
-        ? '▶️ REANUDAR TODAS'
-        : escaparHtml(item.accion);
-
-    const destino = item.global || String(item.id) === 'TODAS'
-      ? 'TODAS'
-      : `Perfil ${escaparHtml(item.id)}`;
+      : '▶️ REANUDAR TODAS';
 
     const fecha = new Date(Number(item.ejecutarEn)).toLocaleString();
 
     return `
       <div class="programacionItem">
         <div><strong>${accionTxt}</strong></div>
-        <div>Destino: ${destino}</div>
         <div>Hora puesta: ${escaparHtml(item.horaTexto || 'N/A')}</div>
         <div>Se ejecuta: ${escaparHtml(fecha)}</div>
         <div>Falta: ${escaparHtml(tiempoRestante(Number(item.ejecutarEn)))}</div>
@@ -920,17 +908,11 @@ function borrarPerfil(id) {
 
 function programarAccion(id, accion, minutos = 30) {
   const state = leerState();
-
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
-
   state.schedules.push({
     id,
     accion,
     ejecutarEn: Date.now() + minutos * 60 * 1000
   });
-
   guardarState(state);
 }
 
@@ -1423,24 +1405,28 @@ async function revisarTelegram() {
           if (state.esperandoProgramacion) {
             const accionPendiente = state.esperandoProgramacion.accion;
 
-            if (texto === 'CANCELAR' || texto === 'CANCEL' || texto === 'QUITAR' || texto === 'BORRAR') {
-              const borradas = quitarProgramacionGlobal(accionPendiente);
+            if (
+              texto === 'CANCELAR' ||
+              texto === 'CANCEL' ||
+              texto === 'QUITAR' ||
+              texto === 'BORRAR'
+            ) {
+              const borradas = cancelarProgramacionGlobal(accionPendiente);
 
               const nuevoState = leerState();
-              Object.assign(state, nuevoState);
-              state.offset = u.update_id;
+              nuevoState.esperandoProgramacion = null;
+              nuevoState.offset = u.update_id;
+              guardarState(nuevoState);
 
-              const accionTexto = accionPendiente === 'PAUSADA' ? 'PAUSAR TODAS' : 'REANUDAR TODAS';
+              const accionTexto = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
 
               await enviarMensajeProgramacionLimpio(
                 chatId,
                 `✅ PROGRAMACIÓN QUITADA
 
-Acción:
 ${accionTexto}
 
-Borradas:
-${borradas}
+Borradas: ${borradas}
 
 ${resumenProgramacionesTelegram()}`
               );
@@ -1451,8 +1437,9 @@ ${resumenProgramacionesTelegram()}`
             const resultado = programarAccionGlobal(accionPendiente, textoOriginal);
 
             const nuevoState = leerState();
-            Object.assign(state, nuevoState);
-            state.offset = u.update_id;
+            nuevoState.esperandoProgramacion = null;
+            nuevoState.offset = u.update_id;
+            guardarState(nuevoState);
 
             if (!resultado.ok) {
               await enviarMensajeProgramacionLimpio(
@@ -1534,7 +1521,9 @@ ${resumenProgramacionesTelegram()}`
       }
     }
 
-    guardarState(state);
+    const stateActual = leerState();
+    stateActual.offset = state.offset;
+    guardarState(stateActual);
   } catch (error) {
     console.log('Error en revisarTelegram:', error?.message || error);
   } finally {
@@ -1543,52 +1532,35 @@ ${resumenProgramacionesTelegram()}`
 }
 
 async function ejecutarProgramaciones() {
-  const state = leerState();
-
-  if (!Array.isArray(state.schedules)) {
-    state.schedules = [];
-  }
-
+  const dataProgramaciones = leerProgramaciones();
   const pendientes = [];
   let cambio = false;
 
-  for (const item of state.schedules) {
-    if (Date.now() >= item.ejecutarEn) {
+  for (const item of dataProgramaciones.items) {
+    if (Date.now() >= Number(item.ejecutarEn)) {
       cambio = true;
 
-      if (esProgramacionGlobal(item)) {
-        if (item.accion === 'PAUSADA') {
-          cancelarColaReanudacion();
-          cambiarEstadoTodos('PAUSADA');
+      if (item.accion === 'PAUSADA') {
+        cancelarColaReanudacion();
+        cambiarEstadoTodos('PAUSADA');
 
-          await enviarTexto(
-            `⏰ Programación ejecutada
+        await enviarTexto(
+          `⏰ Programación ejecutada
 
 Acción: PAUSAR TODAS
 Hora programada: ${item.horaTexto || 'N/A'}`
-          );
-        } else if (item.accion === 'ACTIVA') {
-          reanudarTodasEnCola();
+        );
+      } else if (item.accion === 'ACTIVA') {
+        reanudarTodasEnCola();
 
-          await enviarTexto(
-            `⏰ Programación ejecutada
+        await enviarTexto(
+          `⏰ Programación ejecutada
 
 Acción: REANUDAR TODAS
 Hora programada: ${item.horaTexto || 'N/A'}
 
 Reanudando en cola cada 45 segundos.`
-          );
-        }
-      } else {
-        cambiarEstadoPerfil(item.id, item.accion);
-
-        await enviarTexto(
-          `⏰ Programación ejecutada
-Perfil: ${item.id}
-Nuevo estado: ${item.accion}`
         );
-
-        await enviarEstadoPerfil(item.id);
       }
     } else {
       pendientes.push(item);
@@ -1596,8 +1568,8 @@ Nuevo estado: ${item.accion}`
   }
 
   if (cambio) {
-    state.schedules = pendientes;
-    guardarState(state);
+    dataProgramaciones.items = pendientes;
+    guardarProgramaciones(dataProgramaciones);
   }
 }
 
@@ -1656,21 +1628,21 @@ app.get('/', (req, res) => {
 
     html += `
       <div class="card">
-        <div class="row"><strong>${escaparHtml(p.nombre)}</strong></div>
-        <div class="row">🆔 Perfil: ${escaparHtml(id)}</div>
-        <div class="row">💬 Chat ID: ${escaparHtml(p.chat_id || 'N/A')}</div>
-        <div class="row">🔑 Cliente token: ${escaparHtml(p.cliente_token || 'SIN CLAVE')}</div>
-        <div class="row">📞 ${escaparHtml(p.telefono || 'N/A')}</div>
-        <div class="row">🆔 Código: ${escaparHtml(p.codigo || 'N/A')}</div>
-        <div class="row">📍 ${escaparHtml(p.ubicacion || 'N/A')}</div>
-        <div class="row estado">🟢 ${escaparHtml(p.estado)}</div>
-        <div class="row">🕒 ${escaparHtml(p.ultima_hora)}</div>
-        <div class="row">⏱ Próximo bump: ${escaparHtml(p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A'))}</div>
-        <div class="row">📅 ${escaparHtml(tiempoRestantePlan(p.fin_plan))}</div>
+        <div class="row"><strong>${p.nombre}</strong></div>
+        <div class="row">🆔 Perfil: ${id}</div>
+        <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
+        <div class="row">🔑 Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
+        <div class="row">📞 ${p.telefono || 'N/A'}</div>
+        <div class="row">🆔 Código: ${p.codigo || 'N/A'}</div>
+        <div class="row">📍 ${p.ubicacion || 'N/A'}</div>
+        <div class="row estado">🟢 ${p.estado}</div>
+        <div class="row">🕒 ${p.ultima_hora}</div>
+        <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
+        <div class="row">📅 ${tiempoRestantePlan(p.fin_plan)}</div>
         <div class="row">📊 Bump hoy: ${p.bump_hoy || 0}</div>
         <div class="row">📈 Bump total: ${p.bump_total || 0}</div>
         <div class="row">🖼 Historial fotos: ${totalFotos}</div>
-        <div class="row small">Última acción: ${escaparHtml(p.ultima_accion || 'N/A')}</div>
+        <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
 
         <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
         <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
@@ -1710,12 +1682,12 @@ app.get('/', (req, res) => {
         }
 
         if (accion === 'progpausa') {
-          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM. Para quitarla desde Telegram escribe CANCELAR.');
+          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM');
           if (!hora) return;
         }
 
         if (accion === 'progreanudar') {
-          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM. Para quitarla desde Telegram escribe CANCELAR.');
+          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM');
           if (!hora) return;
         }
 
@@ -1845,28 +1817,28 @@ app.get('/editar/:id', (req, res) => {
     <h1>✏️ Editar perfil ${id}</h1>
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
-        <input type="hidden" name="id" value="${escaparHtml(id)}" />
+        <input type="hidden" name="id" value="${id}" />
 
         <label>Nombre</label>
-        <input name="nombre" value="${escaparHtml(p.nombre || '')}" />
+        <input name="nombre" value="${p.nombre || ''}" />
 
         <label>Chat ID</label>
-        <input name="chat_id" value="${escaparHtml(p.chat_id || '')}" />
+        <input name="chat_id" value="${p.chat_id || ''}" />
 
         <label>Cliente token / Clave de acceso</label>
-        <input name="cliente_token" value="${escaparHtml(p.cliente_token || '')}" />
+        <input name="cliente_token" value="${p.cliente_token || ''}" />
 
         <label>Teléfono</label>
-        <input name="telefono" value="${escaparHtml(p.telefono || '')}" />
+        <input name="telefono" value="${p.telefono || ''}" />
 
         <label>Código</label>
-        <input name="codigo" value="${escaparHtml(p.codigo || '')}" />
+        <input name="codigo" value="${p.codigo || ''}" />
 
         <label>Ubicación</label>
-        <input name="ubicacion" value="${escaparHtml(p.ubicacion || '')}" />
+        <input name="ubicacion" value="${p.ubicacion || ''}" />
 
         <label>Texto</label>
-        <textarea name="texto">${escaparHtml(p.texto || '')}</textarea>
+        <textarea name="texto">${p.texto || ''}</textarea>
 
         <label>Estado</label>
         <select name="estado">
@@ -1875,16 +1847,16 @@ app.get('/editar/:id', (req, res) => {
         </select>
 
         <label>Foto modelo (URL o file_id)</label>
-        <input name="foto_modelo" value="${escaparHtml(p.foto_modelo || '')}" />
+        <input name="foto_modelo" value="${p.foto_modelo || ''}" />
 
         <label>Foto página (URL o file_id)</label>
-        <input name="foto_pagina" value="${escaparHtml(p.foto_pagina || '')}" />
+        <input name="foto_pagina" value="${p.foto_pagina || ''}" />
 
         <label>Próximo post</label>
-        <input name="proximo_post" value="${escaparHtml(p.proximo_post || '')}" />
+        <input name="proximo_post" value="${p.proximo_post || ''}" />
 
         <label>Fin de plan</label>
-        <input name="fin_plan" value="${escaparHtml(p.fin_plan || '')}" />
+        <input name="fin_plan" value="${p.fin_plan || ''}" />
 
         <button class="success" type="submit">Guardar cambios</button>
         <a class="muted" href="/">Volver</a>
@@ -2100,6 +2072,10 @@ app.listen(PORT, async () => {
       esperandoProgramacion: null,
       ultimoMensajeProgramacion: null
     });
+  }
+
+  if (!existeArchivoSeguro(PROGRAMACIONES_FILE)) {
+    guardarProgramaciones({ items: [] });
   }
 
   await apiTelegram('deleteWebhook', {});
