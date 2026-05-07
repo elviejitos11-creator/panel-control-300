@@ -185,7 +185,8 @@ function leerState() {
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      esperandoProgramacion: null
+      esperandoProgramacion: null,
+      ultimoMensajeProgramacion: null
     },
     { protegerContraVacio: false }
   );
@@ -215,12 +216,14 @@ function generarTokenAcceso() {
 }
 
 function escaparHtml(valor) {
-  return String(valor || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+  return String(valor || '').replace(/[&<>"']/g, (c) => {
+    if (c === '&') return '&amp;';
+    if (c === '<') return '&lt;';
+    if (c === '>') return '&gt;';
+    if (c === '"') return '&quot;';
+    if (c === "'") return '&#039;';
+    return c;
+  });
 }
 
 function asegurarPerfil(data, id) {
@@ -392,6 +395,94 @@ function calcularHoraProgramada(textoHora) {
   return fecha.getTime();
 }
 
+function esProgramacionGlobal(item, accion = null) {
+  if (!item) return false;
+
+  const esGlobal = item.global || String(item.id) === 'TODAS';
+
+  if (!esGlobal) return false;
+
+  if (accion && item.accion !== accion) return false;
+
+  return true;
+}
+
+function obtenerProgramacionGlobal(accion) {
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  const pendientes = state.schedules
+    .filter(item => esProgramacionGlobal(item, accion))
+    .filter(item => item.ejecutarEn && Date.now() < Number(item.ejecutarEn))
+    .sort((a, b) => Number(a.ejecutarEn) - Number(b.ejecutarEn));
+
+  return pendientes[0] || null;
+}
+
+function quitarProgramacionGlobal(accion) {
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  const antes = state.schedules.length;
+
+  state.schedules = state.schedules.filter(item => {
+    return !esProgramacionGlobal(item, accion);
+  });
+
+  state.esperandoProgramacion = null;
+
+  guardarState(state);
+
+  return antes - state.schedules.length;
+}
+
+function textoProgramacionActual(accion) {
+  const item = obtenerProgramacionGlobal(accion);
+
+  if (!item) {
+    return 'No programado';
+  }
+
+  const fecha = new Date(Number(item.ejecutarEn)).toLocaleString();
+
+  return `${item.horaTexto || 'N/A'}\nSe ejecuta: ${fecha}\nFalta: ${tiempoRestante(Number(item.ejecutarEn))}`;
+}
+
+function resumenProgramacionesTelegram() {
+  return `⏰ PROGRAMACIONES ACTUALES
+
+⏸ Pausar todas:
+${textoProgramacionActual('PAUSADA')}
+
+▶️ Reanudar todas:
+${textoProgramacionActual('ACTIVA')}`;
+}
+
+function mensajeProgramarTelegram(accion) {
+  const titulo = accion === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+  const ejemplo = accion === 'PAUSADA' ? '06:00 o 6:00 AM' : '20:00 o 8:00 PM';
+  const actual = textoProgramacionActual(accion);
+
+  return `⏰ PROGRAMACIÓN
+
+${titulo}
+
+Estado actual:
+${actual}
+
+Para poner o cambiar la hora, escribe una hora.
+Ejemplo: ${ejemplo}
+
+Para quitar esa programación, escribe:
+CANCELAR`;
+}
+
 function programarAccionGlobal(accion, textoHora) {
   const ejecutarEn = calcularHoraProgramada(textoHora);
 
@@ -407,6 +498,11 @@ function programarAccionGlobal(accion, textoHora) {
   if (!Array.isArray(state.schedules)) {
     state.schedules = [];
   }
+
+  // No duplicar: si ya había una pausa/reanudación global, se reemplaza.
+  state.schedules = state.schedules.filter(item => {
+    return !esProgramacionGlobal(item, accion);
+  });
 
   state.esperandoProgramacion = null;
 
@@ -573,11 +669,50 @@ async function responderCallback(callbackQueryId, text = 'OK') {
 }
 
 async function enviarTexto(texto, chatId = CHAT_ID, idTeclado = null) {
-  await apiTelegram('sendMessage', {
+  return await apiTelegram('sendMessage', {
     chat_id: chatId,
     text: texto,
     reply_markup: idTeclado ? tecladoTelegram(idTeclado) : undefined
   });
+}
+
+async function borrarMensajeTelegram(chatId, messageId) {
+  if (!chatId || !messageId) return;
+
+  await apiTelegram('deleteMessage', {
+    chat_id: chatId,
+    message_id: messageId
+  });
+}
+
+async function enviarMensajeProgramacionLimpio(chatId, texto) {
+  const state = leerState();
+
+  if (
+    state.ultimoMensajeProgramacion &&
+    String(state.ultimoMensajeProgramacion.chatId) === String(chatId) &&
+    state.ultimoMensajeProgramacion.messageId
+  ) {
+    await borrarMensajeTelegram(chatId, state.ultimoMensajeProgramacion.messageId);
+  }
+
+  const res = await enviarTexto(texto, chatId);
+
+  const nuevoState = leerState();
+
+  if (res && res.ok && res.result && res.result.message_id) {
+    nuevoState.ultimoMensajeProgramacion = {
+      chatId,
+      messageId: res.result.message_id,
+      ts: Date.now()
+    };
+  } else {
+    nuevoState.ultimoMensajeProgramacion = null;
+  }
+
+  guardarState(nuevoState);
+
+  return res;
 }
 
 async function enviarFoto(photo, caption, id) {
@@ -1200,8 +1335,8 @@ async function procesarCallback(q) {
     };
     guardarState(state);
 
-    await responderCallback(callbackId, 'Dime la hora');
-    await enviarTexto('⏰ Escribe la hora para PAUSAR TODAS.\n\nEjemplo:\n06:00\no\n6:00 AM', chatId);
+    await responderCallback(callbackId, 'Programar pausa');
+    await enviarMensajeProgramacionLimpio(chatId, mensajeProgramarTelegram('PAUSADA'));
     return;
   }
 
@@ -1214,8 +1349,8 @@ async function procesarCallback(q) {
     };
     guardarState(state);
 
-    await responderCallback(callbackId, 'Dime la hora');
-    await enviarTexto('⏰ Escribe la hora para REANUDAR TODAS.\n\nEjemplo:\n20:00\no\n8:00 PM', chatId);
+    await responderCallback(callbackId, 'Programar reanudar');
+    await enviarMensajeProgramacionLimpio(chatId, mensajeProgramarTelegram('ACTIVA'));
     return;
   }
 
@@ -1287,6 +1422,32 @@ async function revisarTelegram() {
 
           if (state.esperandoProgramacion) {
             const accionPendiente = state.esperandoProgramacion.accion;
+
+            if (texto === 'CANCELAR' || texto === 'CANCEL' || texto === 'QUITAR' || texto === 'BORRAR') {
+              const borradas = quitarProgramacionGlobal(accionPendiente);
+
+              const nuevoState = leerState();
+              Object.assign(state, nuevoState);
+              state.offset = u.update_id;
+
+              const accionTexto = accionPendiente === 'PAUSADA' ? 'PAUSAR TODAS' : 'REANUDAR TODAS';
+
+              await enviarMensajeProgramacionLimpio(
+                chatId,
+                `✅ PROGRAMACIÓN QUITADA
+
+Acción:
+${accionTexto}
+
+Borradas:
+${borradas}
+
+${resumenProgramacionesTelegram()}`
+              );
+
+              continue;
+            }
+
             const resultado = programarAccionGlobal(accionPendiente, textoOriginal);
 
             const nuevoState = leerState();
@@ -1294,15 +1455,30 @@ async function revisarTelegram() {
             state.offset = u.update_id;
 
             if (!resultado.ok) {
-              await enviarTexto(`⚠️ ${resultado.error}`, chatId);
+              await enviarMensajeProgramacionLimpio(
+                chatId,
+                `⚠️ ${resultado.error}
+
+${mensajeProgramarTelegram(accionPendiente)}`
+              );
               continue;
             }
 
-            const palabra = accionPendiente === 'PAUSADA' ? 'PAUSAR' : 'REANUDAR';
+            const palabra = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
 
-            await enviarTexto(
-              `✅ Programación guardada\n\nAcción: ${palabra} TODAS\nHora: ${textoOriginal}\nSe ejecutará: ${resultado.fecha}`,
-              chatId
+            await enviarMensajeProgramacionLimpio(
+              chatId,
+              `✅ PROGRAMACIÓN GUARDADA
+
+${palabra}
+
+Hora:
+${textoOriginal}
+
+Se ejecutará:
+${resultado.fecha}
+
+${resumenProgramacionesTelegram()}`
             );
 
             continue;
@@ -1380,26 +1556,36 @@ async function ejecutarProgramaciones() {
     if (Date.now() >= item.ejecutarEn) {
       cambio = true;
 
-      if (item.global || String(item.id) === 'TODAS') {
+      if (esProgramacionGlobal(item)) {
         if (item.accion === 'PAUSADA') {
           cancelarColaReanudacion();
           cambiarEstadoTodos('PAUSADA');
 
           await enviarTexto(
-            `⏰ Programación ejecutada\n\nAcción: PAUSAR TODAS\nHora programada: ${item.horaTexto || 'N/A'}`
+            `⏰ Programación ejecutada
+
+Acción: PAUSAR TODAS
+Hora programada: ${item.horaTexto || 'N/A'}`
           );
         } else if (item.accion === 'ACTIVA') {
           reanudarTodasEnCola();
 
           await enviarTexto(
-            `⏰ Programación ejecutada\n\nAcción: REANUDAR TODAS\nHora programada: ${item.horaTexto || 'N/A'}\n\nReanudando en cola cada 45 segundos.`
+            `⏰ Programación ejecutada
+
+Acción: REANUDAR TODAS
+Hora programada: ${item.horaTexto || 'N/A'}
+
+Reanudando en cola cada 45 segundos.`
           );
         }
       } else {
         cambiarEstadoPerfil(item.id, item.accion);
 
         await enviarTexto(
-          `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
+          `⏰ Programación ejecutada
+Perfil: ${item.id}
+Nuevo estado: ${item.accion}`
         );
 
         await enviarEstadoPerfil(item.id);
@@ -1524,12 +1710,12 @@ app.get('/', (req, res) => {
         }
 
         if (accion === 'progpausa') {
-          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM');
+          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM. Para quitarla desde Telegram escribe CANCELAR.');
           if (!hora) return;
         }
 
         if (accion === 'progreanudar') {
-          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM');
+          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM. Para quitarla desde Telegram escribe CANCELAR.');
           if (!hora) return;
         }
 
@@ -1538,7 +1724,6 @@ app.get('/', (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, accion, hora })
         });
-
         location.reload();
       }
 
@@ -1660,7 +1845,7 @@ app.get('/editar/:id', (req, res) => {
     <h1>✏️ Editar perfil ${id}</h1>
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
-        <input type="hidden" name="id" value="${id}" />
+        <input type="hidden" name="id" value="${escaparHtml(id)}" />
 
         <label>Nombre</label>
         <input name="nombre" value="${escaparHtml(p.nombre || '')}" />
@@ -1912,7 +2097,8 @@ app.listen(PORT, async () => {
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      esperandoProgramacion: null
+      esperandoProgramacion: null,
+      ultimoMensajeProgramacion: null
     });
   }
 
