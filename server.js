@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 const PORT = 3000;
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
+const BOT_TOKEN = '8455991044:AAEZORTFVwpdedwqoyUMSUcZ06tVZEHa0Ys';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://t.me/tu_soporte';
 const RULES_TEXT = `📜 Reglas del sistema
@@ -185,8 +185,7 @@ function leerState() {
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      alertas: [],
-      ultima_alerta_general_ts: 0
+      esperandoProgramacion: null
     },
     { protegerContraVacio: false }
   );
@@ -238,12 +237,7 @@ function asegurarPerfil(data, id) {
       ultimo_evento: null,
       bump_hoy: 0,
       bump_total: 0,
-      bump_fecha: '',
-      ultima_alerta: '',
-      ultima_alerta_tipo: '',
-      ultima_alerta_hora: '',
-      ultima_alerta_foto: '',
-      historial_alertas: []
+      bump_fecha: ''
     };
   } else {
     if (typeof data[id].bump_hoy !== 'number') data[id].bump_hoy = 0;
@@ -256,11 +250,6 @@ function asegurarPerfil(data, id) {
     if (!('foto_bump' in data[id])) data[id].foto_bump = '';
     if (!('foto_modelo' in data[id])) data[id].foto_modelo = 'https://picsum.photos/400/260';
     if (!('foto_pagina' in data[id])) data[id].foto_pagina = 'https://picsum.photos/420/280';
-    if (!('ultima_alerta' in data[id])) data[id].ultima_alerta = '';
-    if (!('ultima_alerta_tipo' in data[id])) data[id].ultima_alerta_tipo = '';
-    if (!('ultima_alerta_hora' in data[id])) data[id].ultima_alerta_hora = '';
-    if (!('ultima_alerta_foto' in data[id])) data[id].ultima_alerta_foto = '';
-    if (!Array.isArray(data[id].historial_alertas)) data[id].historial_alertas = [];
   }
 }
 
@@ -362,9 +351,71 @@ function tokenValidoParaPerfil(req, perfil) {
   return token === String(perfil.cliente_token).trim();
 }
 
-function limitarTexto(texto, max = 1200) {
-  const t = String(texto || '').trim();
-  return t.length > max ? t.slice(0, max) + '...' : t;
+// =========================
+// PROGRAMAR POR HORA
+// =========================
+function calcularHoraProgramada(textoHora) {
+  const texto = String(textoHora || '').trim().toUpperCase();
+
+  const m = texto.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+
+  if (!m) return null;
+
+  let hora = Number(m[1]);
+  const minuto = m[2] ? Number(m[2]) : 0;
+  const ampm = m[3] || '';
+
+  if (Number.isNaN(hora) || Number.isNaN(minuto)) return null;
+  if (minuto < 0 || minuto > 59) return null;
+
+  if (ampm === 'PM' && hora < 12) hora += 12;
+  if (ampm === 'AM' && hora === 12) hora = 0;
+
+  if (hora < 0 || hora > 23) return null;
+
+  const fecha = new Date();
+  fecha.setHours(hora, minuto, 0, 0);
+
+  if (fecha.getTime() <= Date.now()) {
+    fecha.setDate(fecha.getDate() + 1);
+  }
+
+  return fecha.getTime();
+}
+
+function programarAccionGlobal(accion, textoHora) {
+  const ejecutarEn = calcularHoraProgramada(textoHora);
+
+  if (!ejecutarEn) {
+    return {
+      ok: false,
+      error: 'Hora inválida. Usa ejemplo: 06:00 o 8:00 PM'
+    };
+  }
+
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  state.esperandoProgramacion = null;
+
+  state.schedules.push({
+    id: 'TODAS',
+    global: true,
+    accion,
+    horaTexto: String(textoHora || '').trim(),
+    ejecutarEn
+  });
+
+  guardarState(state);
+
+  return {
+    ok: true,
+    ejecutarEn,
+    fecha: new Date(ejecutarEn).toLocaleString()
+  };
 }
 
 // =========================
@@ -500,7 +551,7 @@ function bufferDesdeBase64(valor) {
   return Buffer.from(limpio, 'base64');
 }
 
-async function enviarBufferComoFoto(buffer, caption, id, filename = 'imagen.jpg') {
+async function enviarBufferComoFoto(buffer, caption, id, filename = 'ultimo_bump.jpg') {
   const data = leerData();
   const perfil = data[id];
   const destino = perfil?.chat_id || CHAT_ID;
@@ -536,7 +587,7 @@ async function enviarFotoFlexible(photo, caption, id) {
   if (esImagenBase64(photo)) {
     try {
       const buffer = bufferDesdeBase64(photo);
-      return await enviarBufferComoFoto(buffer, caption, id, `foto_${id}.jpg`);
+      return await enviarBufferComoFoto(buffer, caption, id, `ultimo_bump_${id}.jpg`);
     } catch (e) {
       console.log('No se pudo enviar foto base64:', e.message);
       return false;
@@ -584,22 +635,6 @@ function cambiarEstadoTodos(estado) {
   guardarData(data);
 }
 
-function limpiarAlertasPerfil(id) {
-  const data = leerData();
-  if (!data[id]) return false;
-
-  asegurarPerfil(data, id);
-
-  data[id].ultima_alerta = '';
-  data[id].ultima_alerta_tipo = '';
-  data[id].ultima_alerta_hora = '';
-  data[id].ultima_alerta_foto = '';
-  data[id].ultima_hora = horaActual();
-  data[id].ultima_accion = 'Alerta limpiada desde panel';
-
-  return guardarData(data);
-}
-
 function resetearAccesoPerfil(id) {
   const data = leerData();
   if (!data[id]) return null;
@@ -611,33 +646,23 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
-  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
-  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
-  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
-  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
-  data[id].ultima_alerta = '';
-  data[id].ultima_alerta_tipo = '';
-  data[id].ultima_alerta_hora = '';
-  data[id].ultima_alerta_foto = '';
-  data[id].historial_alertas = [];
-
   data[id].ultima_hora = horaActual();
   data[id].ultima_accion = `Acceso reseteado y perfil limpiado. Nueva clave: ${nuevoToken}`;
 
@@ -692,131 +717,18 @@ function borrarPerfil(id) {
 
 function programarAccion(id, accion, minutos = 30) {
   const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
   state.schedules.push({
     id,
     accion,
     ejecutarEn: Date.now() + minutos * 60 * 1000
   });
-  guardarState(state);
-}
-
-// =========================
-// ALERTAS / MODO GUARDIA
-// =========================
-async function avisarAlertaGeneral(id, tipo, motivo) {
-  const state = leerState();
-
-  if (!Array.isArray(state.alertas)) {
-    state.alertas = [];
-  }
-
-  const ahora = Date.now();
-  const ventana = 30 * 60 * 1000;
-
-  state.alertas.push({
-    id: String(id),
-    tipo: String(tipo || 'alerta'),
-    motivo: String(motivo || ''),
-    ts: ahora
-  });
-
-  state.alertas = state.alertas.filter(a => ahora - Number(a.ts || 0) <= ventana);
-
-  const perfilesUnicos = new Set(state.alertas.map(a => String(a.id))).size;
-
-  if (
-    perfilesUnicos >= 2 &&
-    (!state.ultima_alerta_general_ts || ahora - Number(state.ultima_alerta_general_ts) > 15 * 60 * 1000)
-  ) {
-    state.ultima_alerta_general_ts = ahora;
-    guardarState(state);
-
-    await enviarTexto(`🚨 ALERTA GENERAL
-
-Hay ${perfilesUnicos} perfiles con alertas en los últimos 30 minutos.
-
-Último perfil: ${id}
-Tipo: ${tipo}
-Motivo: ${motivo}
-
-Revisa el panel antes de seguir.`);
-    return;
-  }
 
   guardarState(state);
-}
-
-async function registrarAlertaPerfil(id, tipo, motivo, detalle, fotoAlerta) {
-  const data = leerData();
-  if (!data[id]) return false;
-
-  asegurarPerfil(data, id);
-
-  const perfil = data[id];
-  const hora = horaActual();
-
-  perfil.estado = 'PAUSADA';
-  perfil.ultima_alerta = limitarTexto(motivo || 'Alerta detectada');
-  perfil.ultima_alerta_tipo = limitarTexto(tipo || 'alerta', 100);
-  perfil.ultima_alerta_hora = hora;
-  perfil.ultima_alerta_foto = fotoAlerta || '';
-  perfil.ultima_hora = hora;
-  perfil.ultima_accion = `🚨 ALERTA: ${limitarTexto(motivo || tipo || 'Problema detectado', 200)}`;
-  perfil.ultimo_evento = {
-    tipo: 'alerta',
-    alerta_tipo: tipo || 'alerta',
-    motivo: motivo || '',
-    detalle: detalle || '',
-    hora
-  };
-
-  if (!Array.isArray(perfil.historial_alertas)) {
-    perfil.historial_alertas = [];
-  }
-
-  perfil.historial_alertas.unshift({
-    tipo: tipo || 'alerta',
-    motivo: motivo || '',
-    detalle: detalle || '',
-    hora
-  });
-
-  perfil.historial_alertas = perfil.historial_alertas.slice(0, 20);
-
-  const ok = guardarData(data);
-  if (!ok) return false;
-
-  const caption = `🚨 MODO GUARDIA ACTIVADO
-
-Perfil: ${perfil.nombre || id}
-ID: ${id}
-Estado: PAUSADA
-
-Tipo:
-${tipo || 'alerta'}
-
-Motivo:
-${motivo || 'Problema detectado'}
-
-Detalle:
-${detalle || 'N/A'}
-
-Hora:
-${hora}
-
-Acción:
-El perfil fue pausado automáticamente para revisión.`;
-
-  if (fotoAlerta) {
-    await enviarFotoFlexible(fotoAlerta, caption, id);
-  } else {
-    const destino = perfil?.chat_id || CHAT_ID;
-    await enviarTexto(caption, destino, id);
-  }
-
-  await avisarAlertaGeneral(id, tipo || 'alerta', motivo || 'Problema detectado');
-
-  return true;
 }
 
 // =========================
@@ -826,10 +738,6 @@ async function enviarEstadoPerfil(id) {
   const data = leerData();
   const perfil = data[id];
   if (!perfil) return;
-
-  const alerta = perfil.ultima_alerta
-    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
-    : '';
 
   const caption = `🔥 jean calos BOT 🔥
 
@@ -842,7 +750,7 @@ Perfil: ${perfil.nombre}
 ⏱ Próximo bump: ${tiempoProximoPost(perfil)}
 📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
 📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
+📈 Bump total: ${perfil.bump_total || 0}`;
 
   await enviarFoto(perfil.foto_modelo, caption, id);
 }
@@ -851,10 +759,6 @@ async function enviarUltimaActualizacion(id) {
   const data = leerData();
   const perfil = data[id];
   if (!perfil) return;
-
-  const alerta = perfil.ultima_alerta
-    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
-    : '';
 
   const caption = `🔥 ÚLTIMO BUMP
 🐺 Los lobos del sistema te desean mucho éxito
@@ -872,7 +776,7 @@ async function enviarUltimaActualizacion(id) {
 📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
 
 📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
+📈 Bump total: ${perfil.bump_total || 0}`;
 
   if (perfil.foto_bump) {
     const ok = await enviarFotoFlexible(perfil.foto_bump, caption, id);
@@ -988,7 +892,7 @@ app.get('/api/licencia/:id', (req, res) => {
       return res.json({
         ok: false,
         estado: 'PAUSADA',
-        motivo: perfil.ultima_alerta ? `Pausado por alerta: ${perfil.ultima_alerta}` : 'Cliente pausado desde el panel'
+        motivo: 'Cliente pausado desde el panel'
       });
     }
 
@@ -1031,7 +935,7 @@ app.get('/api/estado/:id', (req, res) => {
     if (perfil.estado === 'PAUSADA') {
       return res.json({
         estado: 'PAUSADA',
-        motivo: perfil.ultima_alerta ? `Pausada por alerta: ${perfil.ultima_alerta}` : 'Pausada por orden explícita del panel'
+        motivo: 'Pausada por orden explícita del panel'
       });
     }
 
@@ -1046,63 +950,6 @@ app.get('/api/estado/:id', (req, res) => {
       estado: 'ERROR',
       motivo: 'Fallo del panel/lectura'
     });
-  }
-});
-
-app.post('/registrar-alerta', async (req, res) => {
-  try {
-    const {
-      id,
-      tipo = 'alerta',
-      motivo = 'Problema detectado',
-      detalle = '',
-      foto_alerta,
-      foto_alerta_base64
-    } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ ok: false, error: 'Falta id' });
-    }
-
-    const data = leerData();
-    const perfil = data[id];
-
-    if (!perfil) {
-      return res.status(404).json({ ok: false, estado: 'NO_EXISTE', error: 'Perfil no existe' });
-    }
-
-    asegurarPerfil(data, id);
-
-    if (!tokenValidoParaPerfil(req, perfil)) {
-      return res.status(403).json({
-        ok: false,
-        estado: 'TOKEN_INVALIDO',
-        error: 'Token inválido para registrar alerta'
-      });
-    }
-
-    const fotoAlerta = foto_alerta_base64 || foto_alerta || '';
-
-    const ok = await registrarAlertaPerfil(
-      id,
-      String(tipo || 'alerta'),
-      String(motivo || 'Problema detectado'),
-      String(detalle || ''),
-      fotoAlerta
-    );
-
-    if (!ok) {
-      return res.status(500).json({ ok: false, error: 'No se pudo guardar alerta' });
-    }
-
-    return res.json({
-      ok: true,
-      estado: 'PAUSADA',
-      mensaje: 'Alerta registrada y perfil pausado'
-    });
-  } catch (error) {
-    console.log('Error en /registrar-alerta =>', error?.message || error);
-    return res.status(500).json({ ok: false, error: 'Error registrando alerta' });
   }
 });
 
@@ -1151,7 +998,7 @@ app.post('/registrar-evento', async (req, res) => {
 
   // IMPORTANTE:
   // /registrar-evento NO puede cambiar estado.
-  // Solo el panel/botones o /registrar-alerta pueden cambiar estado.
+  // Solo el panel/botones pueden poner ACTIVA o PAUSADA.
 
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
@@ -1277,16 +1124,30 @@ async function procesarCallback(q) {
   }
 
   if (accion === 'progpausa') {
-    programarAccion(id, 'PAUSADA', 30);
-    await responderCallback(callbackId, 'Pausa programada');
-    await enviarTexto(`⏰ Se programó una pausa para el perfil ${id} en 30 minutos.`, chatId);
+    const state = leerState();
+    state.esperandoProgramacion = {
+      accion: 'PAUSADA',
+      chatId,
+      ts: Date.now()
+    };
+    guardarState(state);
+
+    await responderCallback(callbackId, 'Dime la hora');
+    await enviarTexto('⏰ Escribe la hora para PAUSAR TODAS.\n\nEjemplo:\n06:00\no\n6:00 AM', chatId);
     return;
   }
 
   if (accion === 'progreanudar') {
-    programarAccion(id, 'ACTIVA', 30);
-    await responderCallback(callbackId, 'Reanudación programada');
-    await enviarTexto(`⏰ Se programó una reanudación para el perfil ${id} en 30 minutos.`, chatId);
+    const state = leerState();
+    state.esperandoProgramacion = {
+      accion: 'ACTIVA',
+      chatId,
+      ts: Date.now()
+    };
+    guardarState(state);
+
+    await responderCallback(callbackId, 'Dime la hora');
+    await enviarTexto('⏰ Escribe la hora para REANUDAR TODAS.\n\nEjemplo:\n20:00\no\n8:00 PM', chatId);
     return;
   }
 
@@ -1342,6 +1203,10 @@ async function revisarTelegram() {
 
       if (u.callback_query) {
         await procesarCallback(u.callback_query);
+
+        const nuevoState = leerState();
+        Object.assign(state, nuevoState);
+        state.offset = u.update_id;
       }
 
       if (u.message) {
@@ -1349,7 +1214,31 @@ async function revisarTelegram() {
         const chatId = msg.chat?.id || CHAT_ID;
 
         if (msg.text) {
-          const texto = msg.text.trim().toUpperCase();
+          const textoOriginal = msg.text.trim();
+          const texto = textoOriginal.toUpperCase();
+
+          if (state.esperandoProgramacion) {
+            const accionPendiente = state.esperandoProgramacion.accion;
+            const resultado = programarAccionGlobal(accionPendiente, textoOriginal);
+
+            const nuevoState = leerState();
+            Object.assign(state, nuevoState);
+            state.offset = u.update_id;
+
+            if (!resultado.ok) {
+              await enviarTexto(`⚠️ ${resultado.error}`, chatId);
+              continue;
+            }
+
+            const palabra = accionPendiente === 'PAUSADA' ? 'PAUSAR' : 'REANUDAR';
+
+            await enviarTexto(
+              `✅ Programación guardada\n\nAcción: ${palabra} TODAS\nHora: ${textoOriginal}\nSe ejecutará: ${resultado.fecha}`,
+              chatId
+            );
+
+            continue;
+          }
 
           if (/^P\d+$/.test(texto)) {
             const id = texto.replace('P', '');
@@ -1411,17 +1300,42 @@ async function revisarTelegram() {
 
 async function ejecutarProgramaciones() {
   const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
   const pendientes = [];
   let cambio = false;
 
   for (const item of state.schedules) {
     if (Date.now() >= item.ejecutarEn) {
       cambio = true;
-      cambiarEstadoPerfil(item.id, item.accion);
-      await enviarTexto(
-        `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
-      );
-      await enviarEstadoPerfil(item.id);
+
+      if (item.global || String(item.id) === 'TODAS') {
+        if (item.accion === 'PAUSADA') {
+          cancelarColaReanudacion();
+          cambiarEstadoTodos('PAUSADA');
+
+          await enviarTexto(
+            `⏰ Programación ejecutada\n\nAcción: PAUSAR TODAS\nHora programada: ${item.horaTexto || 'N/A'}`
+          );
+        } else if (item.accion === 'ACTIVA') {
+          reanudarTodasEnCola();
+
+          await enviarTexto(
+            `⏰ Programación ejecutada\n\nAcción: REANUDAR TODAS\nHora programada: ${item.horaTexto || 'N/A'}\n\nReanudando en cola cada 45 segundos.`
+          );
+        }
+      } else {
+        cambiarEstadoPerfil(item.id, item.accion);
+
+        await enviarTexto(
+          `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
+        );
+
+        await enviarEstadoPerfil(item.id);
+      }
     } else {
       pendientes.push(item);
     }
@@ -1450,7 +1364,6 @@ app.get('/', (req, res) => {
       .card { background:#132f4c; padding:20px; border-radius:14px; }
       .row { margin:6px 0; }
       .estado { font-weight:bold; }
-      .alertaBox { background:#5c1616; border:1px solid #ff6b6b; padding:10px; border-radius:10px; margin:10px 0; }
       button, .btn {
         margin:6px 6px 0 0; padding:10px 14px; border:none; border-radius:10px;
         cursor:pointer; font-weight:bold; text-decoration:none; display:inline-block;
@@ -1481,16 +1394,6 @@ app.get('/', (req, res) => {
   for (const id of Object.keys(data)) {
     const p = data[id];
     const totalFotos = Array.isArray(p.historial_fotos) ? p.historial_fotos.length : 0;
-    const alertaHtml = p.ultima_alerta
-      ? `
-        <div class="alertaBox">
-          <div><strong>🚨 Última alerta</strong></div>
-          <div>Tipo: ${p.ultima_alerta_tipo || 'N/A'}</div>
-          <div>Motivo: ${p.ultima_alerta || 'N/A'}</div>
-          <div>Hora: ${p.ultima_alerta_hora || 'N/A'}</div>
-        </div>
-      `
-      : '';
 
     html += `
       <div class="card">
@@ -1510,12 +1413,9 @@ app.get('/', (req, res) => {
         <div class="row">🖼 Historial fotos: ${totalFotos}</div>
         <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
 
-        ${alertaHtml}
-
         <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
         <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
         <button class="warning" onclick="accionPerfil('${id}','resetacceso')">🔐 Resetear acceso</button>
-        <button class="info" onclick="accionPerfil('${id}','limpiaralerta')">✅ Limpiar alerta</button>
         <button class="muted" onclick="accionPerfil('${id}','progpausa')">⏰ Programar pausa</button>
         <button class="muted" onclick="accionPerfil('${id}','progreanudar')">⏰ Programar reanudar</button>
         <button class="info" onclick="accionPerfil('${id}','ultima')">🕒 Último bump</button>
@@ -1535,8 +1435,10 @@ app.get('/', (req, res) => {
       }, 10000);
 
       async function accionPerfil(id, accion) {
+        let hora = '';
+
         if (accion === 'resetacceso') {
-          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores, alertas y la clave vieja dejará de funcionar.');
+          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores y la clave vieja dejará de funcionar.');
           if (!ok) return;
         }
 
@@ -1548,10 +1450,20 @@ app.get('/', (req, res) => {
           if (!ok2) return;
         }
 
+        if (accion === 'progpausa') {
+          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM');
+          if (!hora) return;
+        }
+
+        if (accion === 'progreanudar') {
+          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM');
+          if (!hora) return;
+        }
+
         await fetch('/accion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, accion })
+          body: JSON.stringify({ id, accion, hora })
         });
         location.reload();
       }
@@ -1778,7 +1690,7 @@ app.post('/guardar-perfil', (req, res) => {
 // ACCIONES PANEL
 // =========================
 app.post('/accion', async (req, res) => {
-  const { id, accion } = req.body;
+  const { id, accion, hora } = req.body;
   const data = leerData();
 
   if (!data[id]) {
@@ -1797,12 +1709,6 @@ app.post('/accion', async (req, res) => {
     if (nuevoToken) {
       await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
     }
-  } else if (accion === 'limpiaralerta') {
-    const ok = limpiarAlertasPerfil(id);
-
-    if (ok) {
-      await enviarTexto(`✅ Alerta limpiada\nPerfil: ${id}`);
-    }
   } else if (accion === 'borrarperfil') {
     const ok = borrarPerfil(id);
 
@@ -1812,11 +1718,21 @@ app.post('/accion', async (req, res) => {
       await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
     }
   } else if (accion === 'progpausa') {
-    programarAccion(id, 'PAUSADA', 30);
-    await enviarTexto(`⏰ Se programó una pausa para ${data[id].nombre} en 30 minutos.`);
+    const resultado = programarAccionGlobal('PAUSADA', hora);
+
+    if (resultado.ok) {
+      await enviarTexto(`✅ Programado desde panel\nAcción: PAUSAR TODAS\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`);
+    } else {
+      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`);
+    }
   } else if (accion === 'progreanudar') {
-    programarAccion(id, 'ACTIVA', 30);
-    await enviarTexto(`⏰ Se programó una reanudación para ${data[id].nombre} en 30 minutos.`);
+    const resultado = programarAccionGlobal('ACTIVA', hora);
+
+    if (resultado.ok) {
+      await enviarTexto(`✅ Programado desde panel\nAcción: REANUDAR TODAS\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`);
+    } else {
+      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`);
+    }
   } else if (accion === 'ultima') {
     await enviarUltimaActualizacion(id);
   } else if (accion === 'foto') {
@@ -1922,8 +1838,7 @@ app.listen(PORT, async () => {
       offset: 0,
       schedules: [],
       esperandoFoto: null,
-      alertas: [],
-      ultima_alerta_general_ts: 0
+      esperandoProgramacion: null
     });
   }
 
