@@ -28,15 +28,12 @@ const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
+
 1. Antes de comenzar a trabajar, revisa que cada perfil tenga su información correcta y actualizada.
-2. Las fotos enviadas por el sistema son reales y actualizadas en vivo cuando llega la notificación
+2. Las fotos enviadas por el sistema son reales y actualizadas en vivo cuando llega la notificación.
 3. Cada actualización debe revisarse con atención para mantener el trabajo limpio, organizado y seguro.
 4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el botón Contactar.`;
 
-1. Usa el panel para controlar estados.
-2. Verifica tus perfiles antes de trabajar.
-3. Las fotos pueden no ser en vivo.
-4. Si necesitas ayuda, usa el botón Contactar.`;
 
 // archivos locales
 const DATA_FILE = path.join(__dirname, 'data.json');
