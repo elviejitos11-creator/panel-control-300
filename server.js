@@ -26,8 +26,12 @@ const PORT = 3000;
 // CAMBIA ESTAS 4 COSAS
 const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
 const CHAT_ID = '';
-const SUPPORT_URL = 'https://t.me/tu_soporte';
+const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
+1. Antes de comenzar a trabajar, revisa que cada perfil tenga su información correcta y actualizada.
+2. Las fotos enviadas por el sistema son reales y actualizadas en vivo cuando llega la notificación
+3. Cada actualización debe revisarse con atención para mantener el trabajo limpio, organizado y seguro.
+4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el botón Contactar.`;
 
 1. Usa el panel para controlar estados.
 2. Verifica tus perfiles antes de trabajar.
@@ -1121,7 +1125,6 @@ async function enviarUltimaActualizacion(id) {
 💰 Que esta publicación te genere mucho dinero
 🚀 Y que la próxima te deje aún más ganancias
 📄 Información:
-
 📞 Número: ${perfil.telefono}
 🆔 Código: ${perfil.codigo}
 📍 Ubicación: ${perfil.ubicacion}
@@ -1130,7 +1133,6 @@ async function enviarUltimaActualizacion(id) {
 🕒 Hora del bump: ${perfil.ultima_hora}
 ⏱ Tiempo para próximo bump: ${tiempoProximoPost(perfil)}
 📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
-
 📊 Bump hoy: ${perfil.bump_hoy || 0}
 📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
 
