@@ -40,7 +40,7 @@ const STATE_FILE = path.join(__dirname, 'bot_state.json');
 const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
 const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
 
-// programación separada para que NO se borre al abrir panel ni al revisar Telegram
+// programación separada para que NO se borre al abrir panel ni al tocar Telegram
 const PROGRAMACIONES_FILE = path.join(__dirname, 'programaciones.json');
 const PROGRAMACIONES_BACKUP_FILE = path.join(__dirname, 'programaciones.backup.json');
 
@@ -190,7 +190,9 @@ function leerState() {
       schedules: [],
       esperandoFoto: null,
       esperandoProgramacion: null,
-      ultimoMensajeProgramacion: null
+      ultimoMensajeProgramacion: null,
+      alertas: [],
+      ultima_alerta_general_ts: 0
     },
     { protegerContraVacio: false }
   );
@@ -233,6 +235,30 @@ function guardarProgramaciones(data) {
   }
 
   return guardarJSONSeguro(PROGRAMACIONES_FILE, PROGRAMACIONES_BACKUP_FILE, data);
+}
+
+function guardarStateTelegramSeguro(stateParcial) {
+  const actual = leerState();
+
+  actual.offset = stateParcial.offset || actual.offset || 0;
+
+  if ('esperandoFoto' in stateParcial) {
+    actual.esperandoFoto = stateParcial.esperandoFoto;
+  }
+
+  if ('esperandoProgramacion' in stateParcial) {
+    actual.esperandoProgramacion = stateParcial.esperandoProgramacion;
+  }
+
+  if ('ultimoMensajeProgramacion' in stateParcial) {
+    actual.ultimoMensajeProgramacion = stateParcial.ultimoMensajeProgramacion;
+  }
+
+  if (!Array.isArray(actual.schedules)) actual.schedules = [];
+  if (!Array.isArray(actual.alertas)) actual.alertas = [];
+  if (!('ultima_alerta_general_ts' in actual)) actual.ultima_alerta_general_ts = 0;
+
+  return guardarState(actual);
 }
 
 function horaActual() {
@@ -284,7 +310,12 @@ function asegurarPerfil(data, id) {
       ultimo_evento: null,
       bump_hoy: 0,
       bump_total: 0,
-      bump_fecha: ''
+      bump_fecha: '',
+      ultima_alerta: '',
+      ultima_alerta_tipo: '',
+      ultima_alerta_hora: '',
+      ultima_alerta_foto: '',
+      historial_alertas: []
     };
   } else {
     if (typeof data[id].bump_hoy !== 'number') data[id].bump_hoy = 0;
@@ -297,6 +328,11 @@ function asegurarPerfil(data, id) {
     if (!('foto_bump' in data[id])) data[id].foto_bump = '';
     if (!('foto_modelo' in data[id])) data[id].foto_modelo = 'https://picsum.photos/400/260';
     if (!('foto_pagina' in data[id])) data[id].foto_pagina = 'https://picsum.photos/420/280';
+    if (!('ultima_alerta' in data[id])) data[id].ultima_alerta = '';
+    if (!('ultima_alerta_tipo' in data[id])) data[id].ultima_alerta_tipo = '';
+    if (!('ultima_alerta_hora' in data[id])) data[id].ultima_alerta_hora = '';
+    if (!('ultima_alerta_foto' in data[id])) data[id].ultima_alerta_foto = '';
+    if (!Array.isArray(data[id].historial_alertas)) data[id].historial_alertas = [];
   }
 }
 
@@ -398,11 +434,32 @@ function tokenValidoParaPerfil(req, perfil) {
   return token === String(perfil.cliente_token).trim();
 }
 
+function limitarTexto(texto, max = 1200) {
+  const t = String(texto || '').trim();
+  return t.length > max ? t.slice(0, max) + '...' : t;
+}
+
+function limpiarTextoTelegram(valor) {
+  let texto = String(valor || '');
+
+  texto = texto
+    .replace(/\s*\b\d+\s+Notices?\s+and\s+Messages?\b[\s\S]*$/gi, '')
+    .replace(/\s*\bNotices?\s+and\s+Messages?\b[\s\S]*$/gi, '')
+    .replace(/\s*\bREPORT\s+BUG\b[\s\S]*$/gi, '')
+    .replace(/\s*\bDELETE\s+ACCOUNT\b[\s\S]*$/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s+$/g, '')
+    .trim();
+
+  return texto;
+}
+
 // =========================
 // PROGRAMACIÓN POR HORA
 // =========================
 function calcularHoraProgramada(textoHora) {
-  const texto = String(textoHora || '').trim().toUpperCase();
+  const texto = String(textoHora || '').trim().toUpperCase().replace(/\./g, '');
   const m = texto.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
 
   if (!m) return null;
@@ -492,7 +549,6 @@ function programarAccionGlobal(accion, textoHora) {
 
   const data = leerProgramaciones();
 
-  // No duplicar: se reemplaza solo la programación de esa acción.
   data.items = data.items.filter(item => item.accion !== accion);
 
   data.items.push({
@@ -664,45 +720,6 @@ async function enviarTexto(texto, chatId = CHAT_ID, idTeclado = null) {
   });
 }
 
-async function borrarMensajeTelegram(chatId, messageId) {
-  if (!chatId || !messageId) return;
-
-  await apiTelegram('deleteMessage', {
-    chat_id: chatId,
-    message_id: messageId
-  });
-}
-
-async function enviarMensajeProgramacionLimpio(chatId, texto) {
-  const state = leerState();
-
-  if (
-    state.ultimoMensajeProgramacion &&
-    String(state.ultimoMensajeProgramacion.chatId) === String(chatId) &&
-    state.ultimoMensajeProgramacion.messageId
-  ) {
-    await borrarMensajeTelegram(chatId, state.ultimoMensajeProgramacion.messageId);
-  }
-
-  const res = await enviarTexto(texto, chatId);
-
-  const nuevoState = leerState();
-
-  if (res && res.ok && res.result && res.result.message_id) {
-    nuevoState.ultimoMensajeProgramacion = {
-      chatId,
-      messageId: res.result.message_id,
-      ts: Date.now()
-    };
-  } else {
-    nuevoState.ultimoMensajeProgramacion = null;
-  }
-
-  guardarState(nuevoState);
-
-  return res;
-}
-
 async function enviarFoto(photo, caption, id) {
   const data = leerData();
   const perfil = data[id];
@@ -735,7 +752,7 @@ function bufferDesdeBase64(valor) {
   return Buffer.from(limpio, 'base64');
 }
 
-async function enviarBufferComoFoto(buffer, caption, id, filename = 'ultimo_bump.jpg') {
+async function enviarBufferComoFoto(buffer, caption, id, filename = 'imagen.jpg') {
   const data = leerData();
   const perfil = data[id];
   const destino = perfil?.chat_id || CHAT_ID;
@@ -771,7 +788,7 @@ async function enviarFotoFlexible(photo, caption, id) {
   if (esImagenBase64(photo)) {
     try {
       const buffer = bufferDesdeBase64(photo);
-      return await enviarBufferComoFoto(buffer, caption, id, `ultimo_bump_${id}.jpg`);
+      return await enviarBufferComoFoto(buffer, caption, id, `foto_${id}.jpg`);
     } catch (e) {
       console.log('No se pudo enviar foto base64:', e.message);
       return false;
@@ -819,6 +836,22 @@ function cambiarEstadoTodos(estado) {
   guardarData(data);
 }
 
+function limpiarAlertasPerfil(id) {
+  const data = leerData();
+  if (!data[id]) return false;
+
+  asegurarPerfil(data, id);
+
+  data[id].ultima_alerta = '';
+  data[id].ultima_alerta_tipo = '';
+  data[id].ultima_alerta_hora = '';
+  data[id].ultima_alerta_foto = '';
+  data[id].ultima_hora = horaActual();
+  data[id].ultima_accion = 'Alerta limpiada desde panel';
+
+  return guardarData(data);
+}
+
 function resetearAccesoPerfil(id) {
   const data = leerData();
   if (!data[id]) return null;
@@ -849,8 +882,14 @@ function resetearAccesoPerfil(id) {
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
-  // LIMPIAR EVENTOS
+  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
+  data[id].ultima_alerta = '';
+  data[id].ultima_alerta_tipo = '';
+  data[id].ultima_alerta_hora = '';
+  data[id].ultima_alerta_foto = '';
+  data[id].historial_alertas = [];
+
   data[id].ultima_hora = horaActual();
   data[id].ultima_accion = `Acceso reseteado y perfil limpiado. Nueva clave: ${nuevoToken}`;
 
@@ -888,7 +927,6 @@ function borrarPerfil(id) {
 
   if (!data[id]) return false;
 
-  // Quitar de la cola de reanudación si estaba pendiente
   if (Array.isArray(colaReanudacion)) {
     colaReanudacion = colaReanudacion.filter(x => String(x) !== String(id));
 
@@ -897,10 +935,8 @@ function borrarPerfil(id) {
     }
   }
 
-  // Borrar programaciones pendientes de ese perfil
   limpiarProgramacionesPerfil(id);
 
-  // Borrar perfil completo del data.json
   delete data[id];
 
   return guardarData(data);
@@ -908,12 +944,137 @@ function borrarPerfil(id) {
 
 function programarAccion(id, accion, minutos = 30) {
   const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
   state.schedules.push({
     id,
     accion,
     ejecutarEn: Date.now() + minutos * 60 * 1000
   });
+
   guardarState(state);
+}
+
+// =========================
+// ALERTAS / MODO GUARDIA
+// =========================
+async function avisarAlertaGeneral(id, tipo, motivo) {
+  const state = leerState();
+
+  if (!Array.isArray(state.alertas)) {
+    state.alertas = [];
+  }
+
+  const ahora = Date.now();
+  const ventana = 30 * 60 * 1000;
+
+  state.alertas.push({
+    id: String(id),
+    tipo: String(tipo || 'alerta'),
+    motivo: String(motivo || ''),
+    ts: ahora
+  });
+
+  state.alertas = state.alertas.filter(a => ahora - Number(a.ts || 0) <= ventana);
+
+  const perfilesUnicos = new Set(state.alertas.map(a => String(a.id))).size;
+
+  if (
+    perfilesUnicos >= 2 &&
+    (!state.ultima_alerta_general_ts || ahora - Number(state.ultima_alerta_general_ts) > 15 * 60 * 1000)
+  ) {
+    state.ultima_alerta_general_ts = ahora;
+    guardarState(state);
+
+    await enviarTexto(`🚨 ALERTA GENERAL
+
+Hay ${perfilesUnicos} perfiles con alertas en los últimos 30 minutos.
+
+Último perfil: ${id}
+Tipo: ${tipo}
+Motivo: ${motivo}
+
+Revisa el panel antes de seguir.`);
+    return;
+  }
+
+  guardarState(state);
+}
+
+async function registrarAlertaPerfil(id, tipo, motivo, detalle, fotoAlerta) {
+  const data = leerData();
+  if (!data[id]) return false;
+
+  asegurarPerfil(data, id);
+
+  const perfil = data[id];
+  const hora = horaActual();
+
+  perfil.estado = 'PAUSADA';
+  perfil.ultima_alerta = limitarTexto(motivo || 'Alerta detectada');
+  perfil.ultima_alerta_tipo = limitarTexto(tipo || 'alerta', 100);
+  perfil.ultima_alerta_hora = hora;
+  perfil.ultima_alerta_foto = fotoAlerta || '';
+  perfil.ultima_hora = hora;
+  perfil.ultima_accion = `🚨 ALERTA: ${limitarTexto(motivo || tipo || 'Problema detectado', 200)}`;
+  perfil.ultimo_evento = {
+    tipo: 'alerta',
+    alerta_tipo: tipo || 'alerta',
+    motivo: motivo || '',
+    detalle: detalle || '',
+    hora
+  };
+
+  if (!Array.isArray(perfil.historial_alertas)) {
+    perfil.historial_alertas = [];
+  }
+
+  perfil.historial_alertas.unshift({
+    tipo: tipo || 'alerta',
+    motivo: motivo || '',
+    detalle: detalle || '',
+    hora
+  });
+
+  perfil.historial_alertas = perfil.historial_alertas.slice(0, 20);
+
+  const ok = guardarData(data);
+  if (!ok) return false;
+
+  const caption = `🚨 MODO GUARDIA ACTIVADO
+
+Perfil: ${perfil.nombre || id}
+ID: ${id}
+Estado: PAUSADA
+
+Tipo:
+${tipo || 'alerta'}
+
+Motivo:
+${motivo || 'Problema detectado'}
+
+Detalle:
+${detalle || 'N/A'}
+
+Hora:
+${hora}
+
+Acción:
+El perfil fue pausado automáticamente para revisión.`;
+
+  if (fotoAlerta) {
+    await enviarFotoFlexible(fotoAlerta, caption, id);
+  } else {
+    const destino = perfil?.chat_id || CHAT_ID;
+    await enviarTexto(caption, destino, id);
+  }
+
+  await avisarAlertaGeneral(id, tipo || 'alerta', motivo || 'Problema detectado');
+
+  return true;
 }
 
 // =========================
@@ -923,6 +1084,10 @@ async function enviarEstadoPerfil(id) {
   const data = leerData();
   const perfil = data[id];
   if (!perfil) return;
+
+  const alerta = perfil.ultima_alerta
+    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
+    : '';
 
   const caption = `🔥 jean calos BOT 🔥
 
@@ -935,7 +1100,7 @@ Perfil: ${perfil.nombre}
 ⏱ Próximo bump: ${tiempoProximoPost(perfil)}
 📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
 📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}`;
+📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
 
   await enviarFoto(perfil.foto_modelo, caption, id);
 }
@@ -944,6 +1109,12 @@ async function enviarUltimaActualizacion(id) {
   const data = leerData();
   const perfil = data[id];
   if (!perfil) return;
+
+  const textoLimpio = limpiarTextoTelegram(perfil.texto || 'N/A');
+
+  const alerta = perfil.ultima_alerta
+    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
+    : '';
 
   const caption = `🔥 ÚLTIMO BUMP
 🐺 Los lobos del sistema te desean mucho éxito
@@ -954,14 +1125,14 @@ async function enviarUltimaActualizacion(id) {
 📞 Número: ${perfil.telefono}
 🆔 Código: ${perfil.codigo}
 📍 Ubicación: ${perfil.ubicacion}
-📝 Texto: ${perfil.texto || 'N/A'}
+📝 Texto: ${textoLimpio || 'N/A'}
 🟢 Estado: ${perfil.estado}
 🕒 Hora del bump: ${perfil.ultima_hora}
 ⏱ Tiempo para próximo bump: ${tiempoProximoPost(perfil)}
 📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
 
 📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}`;
+📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
 
   if (perfil.foto_bump) {
     const ok = await enviarFotoFlexible(perfil.foto_bump, caption, id);
@@ -1077,7 +1248,7 @@ app.get('/api/licencia/:id', (req, res) => {
       return res.json({
         ok: false,
         estado: 'PAUSADA',
-        motivo: 'Cliente pausado desde el panel'
+        motivo: perfil.ultima_alerta ? `Pausado por alerta: ${perfil.ultima_alerta}` : 'Cliente pausado desde el panel'
       });
     }
 
@@ -1120,7 +1291,7 @@ app.get('/api/estado/:id', (req, res) => {
     if (perfil.estado === 'PAUSADA') {
       return res.json({
         estado: 'PAUSADA',
-        motivo: 'Pausada por orden explícita del panel'
+        motivo: perfil.ultima_alerta ? `Pausada por alerta: ${perfil.ultima_alerta}` : 'Pausada por orden explícita del panel'
       });
     }
 
@@ -1135,6 +1306,63 @@ app.get('/api/estado/:id', (req, res) => {
       estado: 'ERROR',
       motivo: 'Fallo del panel/lectura'
     });
+  }
+});
+
+app.post('/registrar-alerta', async (req, res) => {
+  try {
+    const {
+      id,
+      tipo = 'alerta',
+      motivo = 'Problema detectado',
+      detalle = '',
+      foto_alerta,
+      foto_alerta_base64
+    } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ ok: false, error: 'Falta id' });
+    }
+
+    const data = leerData();
+    const perfil = data[id];
+
+    if (!perfil) {
+      return res.status(404).json({ ok: false, estado: 'NO_EXISTE', error: 'Perfil no existe' });
+    }
+
+    asegurarPerfil(data, id);
+
+    if (!tokenValidoParaPerfil(req, perfil)) {
+      return res.status(403).json({
+        ok: false,
+        estado: 'TOKEN_INVALIDO',
+        error: 'Token inválido para registrar alerta'
+      });
+    }
+
+    const fotoAlerta = foto_alerta_base64 || foto_alerta || '';
+
+    const ok = await registrarAlertaPerfil(
+      id,
+      String(tipo || 'alerta'),
+      String(motivo || 'Problema detectado'),
+      String(detalle || ''),
+      fotoAlerta
+    );
+
+    if (!ok) {
+      return res.status(500).json({ ok: false, error: 'No se pudo guardar alerta' });
+    }
+
+    return res.json({
+      ok: true,
+      estado: 'PAUSADA',
+      mensaje: 'Alerta registrada y perfil pausado'
+    });
+  } catch (error) {
+    console.log('Error en /registrar-alerta =>', error?.message || error);
+    return res.status(500).json({ ok: false, error: 'Error registrando alerta' });
   }
 });
 
@@ -1183,7 +1411,7 @@ app.post('/registrar-evento', async (req, res) => {
 
   // IMPORTANTE:
   // /registrar-evento NO puede cambiar estado.
-  // Solo el panel/botones pueden poner ACTIVA o PAUSADA.
+  // Solo el panel/botones o /registrar-alerta pueden cambiar estado.
 
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
@@ -1318,7 +1546,7 @@ async function procesarCallback(q) {
     guardarState(state);
 
     await responderCallback(callbackId, 'Programar pausa');
-    await enviarMensajeProgramacionLimpio(chatId, mensajeProgramarTelegram('PAUSADA'));
+    await enviarTexto(mensajeProgramarTelegram('PAUSADA'), chatId);
     return;
   }
 
@@ -1332,7 +1560,7 @@ async function procesarCallback(q) {
     guardarState(state);
 
     await responderCallback(callbackId, 'Programar reanudar');
-    await enviarMensajeProgramacionLimpio(chatId, mensajeProgramarTelegram('ACTIVA'));
+    await enviarTexto(mensajeProgramarTelegram('ACTIVA'), chatId);
     return;
   }
 
@@ -1416,19 +1644,19 @@ async function revisarTelegram() {
               const nuevoState = leerState();
               nuevoState.esperandoProgramacion = null;
               nuevoState.offset = u.update_id;
-              guardarState(nuevoState);
+              guardarStateTelegramSeguro(nuevoState);
 
               const accionTexto = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
 
-              await enviarMensajeProgramacionLimpio(
-                chatId,
+              await enviarTexto(
                 `✅ PROGRAMACIÓN QUITADA
 
 ${accionTexto}
 
 Borradas: ${borradas}
 
-${resumenProgramacionesTelegram()}`
+${resumenProgramacionesTelegram()}`,
+                chatId
               );
 
               continue;
@@ -1439,22 +1667,21 @@ ${resumenProgramacionesTelegram()}`
             const nuevoState = leerState();
             nuevoState.esperandoProgramacion = null;
             nuevoState.offset = u.update_id;
-            guardarState(nuevoState);
+            guardarStateTelegramSeguro(nuevoState);
 
             if (!resultado.ok) {
-              await enviarMensajeProgramacionLimpio(
-                chatId,
+              await enviarTexto(
                 `⚠️ ${resultado.error}
 
-${mensajeProgramarTelegram(accionPendiente)}`
+${mensajeProgramarTelegram(accionPendiente)}`,
+                chatId
               );
               continue;
             }
 
             const palabra = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
 
-            await enviarMensajeProgramacionLimpio(
-              chatId,
+            await enviarTexto(
               `✅ PROGRAMACIÓN GUARDADA
 
 ${palabra}
@@ -1465,7 +1692,8 @@ ${textoOriginal}
 Se ejecutará:
 ${resultado.fecha}
 
-${resumenProgramacionesTelegram()}`
+${resumenProgramacionesTelegram()}`,
+              chatId
             );
 
             continue;
@@ -1478,7 +1706,7 @@ ${resumenProgramacionesTelegram()}`
             guardarData(data);
 
             state.esperandoFoto = id;
-            guardarState(state);
+            guardarStateTelegramSeguro(state);
 
             await enviarTexto(`📸 Ahora envía la foto para el perfil ${id}`, chatId);
           }
@@ -1513,7 +1741,7 @@ ${resumenProgramacionesTelegram()}`
           guardarData(data);
 
           state.esperandoFoto = null;
-          guardarState(state);
+          guardarStateTelegramSeguro(state);
 
           await enviarTexto(`✅ Foto guardada para perfil ${id}`, chatId);
           await enviarFotoPagina(id);
@@ -1523,7 +1751,7 @@ ${resumenProgramacionesTelegram()}`
 
     const stateActual = leerState();
     stateActual.offset = state.offset;
-    guardarState(stateActual);
+    guardarStateTelegramSeguro(stateActual);
   } catch (error) {
     console.log('Error en revisarTelegram:', error?.message || error);
   } finally {
@@ -1532,6 +1760,34 @@ ${resumenProgramacionesTelegram()}`
 }
 
 async function ejecutarProgramaciones() {
+  const state = leerState();
+
+  if (!Array.isArray(state.schedules)) {
+    state.schedules = [];
+  }
+
+  const pendientesViejas = [];
+  let cambioViejo = false;
+
+  for (const item of state.schedules) {
+    if (Date.now() >= Number(item.ejecutarEn)) {
+      cambioViejo = true;
+      cambiarEstadoPerfil(item.id, item.accion);
+      await enviarTexto(
+        `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
+      );
+      await enviarEstadoPerfil(item.id);
+    } else {
+      pendientesViejas.push(item);
+    }
+  }
+
+  if (cambioViejo) {
+    const stateActual = leerState();
+    stateActual.schedules = pendientesViejas;
+    guardarState(stateActual);
+  }
+
   const dataProgramaciones = leerProgramaciones();
   const pendientes = [];
   let cambio = false;
@@ -1590,6 +1846,7 @@ app.get('/', (req, res) => {
       .card { background:#132f4c; padding:20px; border-radius:14px; }
       .row { margin:6px 0; }
       .estado { font-weight:bold; }
+      .alertaBox { background:#5c1616; border:1px solid #ff6b6b; padding:10px; border-radius:10px; margin:10px 0; }
       .programacionBox { background:#10263d; border:1px solid #4f86c6; padding:14px; border-radius:14px; margin:14px 0 18px 0; }
       .programacionItem { background:#183a5c; padding:10px; border-radius:10px; margin-top:10px; }
       button, .btn {
@@ -1625,6 +1882,16 @@ app.get('/', (req, res) => {
   for (const id of Object.keys(data)) {
     const p = data[id];
     const totalFotos = Array.isArray(p.historial_fotos) ? p.historial_fotos.length : 0;
+    const alertaHtml = p.ultima_alerta
+      ? `
+        <div class="alertaBox">
+          <div><strong>🚨 Última alerta</strong></div>
+          <div>Tipo: ${p.ultima_alerta_tipo || 'N/A'}</div>
+          <div>Motivo: ${p.ultima_alerta || 'N/A'}</div>
+          <div>Hora: ${p.ultima_alerta_hora || 'N/A'}</div>
+        </div>
+      `
+      : '';
 
     html += `
       <div class="card">
@@ -1644,9 +1911,12 @@ app.get('/', (req, res) => {
         <div class="row">🖼 Historial fotos: ${totalFotos}</div>
         <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
 
+        ${alertaHtml}
+
         <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
         <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
         <button class="warning" onclick="accionPerfil('${id}','resetacceso')">🔐 Resetear acceso</button>
+        <button class="info" onclick="accionPerfil('${id}','limpiaralerta')">✅ Limpiar alerta</button>
         <button class="muted" onclick="accionPerfil('${id}','progpausa')">⏰ Programar pausa</button>
         <button class="muted" onclick="accionPerfil('${id}','progreanudar')">⏰ Programar reanudar</button>
         <button class="info" onclick="accionPerfil('${id}','ultima')">🕒 Último bump</button>
@@ -1669,7 +1939,7 @@ app.get('/', (req, res) => {
         let hora = '';
 
         if (accion === 'resetacceso') {
-          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores y la clave vieja dejará de funcionar.');
+          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores, alertas y la clave vieja dejará de funcionar.');
           if (!ok) return;
         }
 
@@ -1940,6 +2210,12 @@ app.post('/accion', async (req, res) => {
     if (nuevoToken) {
       await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
     }
+  } else if (accion === 'limpiaralerta') {
+    const ok = limpiarAlertasPerfil(id);
+
+    if (ok) {
+      await enviarTexto(`✅ Alerta limpiada\nPerfil: ${id}`);
+    }
   } else if (accion === 'borrarperfil') {
     const ok = borrarPerfil(id);
 
@@ -2070,7 +2346,9 @@ app.listen(PORT, async () => {
       schedules: [],
       esperandoFoto: null,
       esperandoProgramacion: null,
-      ultimoMensajeProgramacion: null
+      ultimoMensajeProgramacion: null,
+      alertas: [],
+      ultima_alerta_general_ts: 0
     });
   }
 
