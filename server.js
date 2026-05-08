@@ -34,7 +34,6 @@ const RULES_TEXT = `📜 Reglas del sistema
 3. Cada actualización debe revisarse con atención para mantener el trabajo limpio, organizado y seguro.
 4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el botón Contactar.`;
 
-
 // archivos locales
 const DATA_FILE = path.join(__dirname, 'data.json');
 const STATE_FILE = path.join(__dirname, 'bot_state.json');
@@ -459,32 +458,192 @@ function limpiarTextoTelegram(valor) {
 // =========================
 // PROGRAMACIÓN POR HORA
 // =========================
-function calcularHoraProgramada(textoHora) {
+
+// Hora fija de República Dominicana. Así no depende de la hora rara de Railway.
+const ZONA_RD_OFFSET_MS = -4 * 60 * 60 * 1000;
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function ahoraRDPartes() {
+  const d = new Date(Date.now() + ZONA_RD_OFFSET_MS);
+
+  return {
+    ano: d.getUTCFullYear(),
+    mes: d.getUTCMonth() + 1,
+    dia: d.getUTCDate()
+  };
+}
+
+function sumarDiasRD(partes, dias) {
+  const d = new Date(Date.UTC(partes.ano, partes.mes - 1, partes.dia + dias, 12, 0, 0));
+
+  return {
+    ano: d.getUTCFullYear(),
+    mes: d.getUTCMonth() + 1,
+    dia: d.getUTCDate()
+  };
+}
+
+function fechaRDATimestamp(ano, mes, dia, hora, minuto) {
+  return Date.UTC(ano, mes - 1, dia, hora, minuto, 0, 0) - ZONA_RD_OFFSET_MS;
+}
+
+function formatearFechaRD(ts) {
+  const d = new Date(Number(ts) + ZONA_RD_OFFSET_MS);
+
+  const dia = pad2(d.getUTCDate());
+  const mes = pad2(d.getUTCMonth() + 1);
+  const ano = d.getUTCFullYear();
+
+  const hora24 = d.getUTCHours();
+  const minuto = pad2(d.getUTCMinutes());
+  const ampm = hora24 >= 12 ? 'PM' : 'AM';
+  const hora12 = hora24 % 12 || 12;
+
+  return `${dia}/${mes}/${ano} ${pad2(hora12)}:${minuto} ${ampm}`;
+}
+
+function parsearHoraSimple(textoHora) {
   const texto = String(textoHora || '').trim().toUpperCase().replace(/\./g, '');
   const m = texto.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
 
-  if (!m) return null;
+  if (!m) {
+    return {
+      ok: false,
+      error: 'Hora inválida. Usa ejemplo: HOY 5:00 AM, MAÑANA 5:00 AM, o 09/05 5:00 AM'
+    };
+  }
 
   let hora = Number(m[1]);
   const minuto = m[2] ? Number(m[2]) : 0;
   const ampm = m[3] || '';
 
-  if (Number.isNaN(hora) || Number.isNaN(minuto)) return null;
-  if (minuto < 0 || minuto > 59) return null;
-
-  if (ampm === 'PM' && hora < 12) hora += 12;
-  if (ampm === 'AM' && hora === 12) hora = 0;
-
-  if (hora < 0 || hora > 23) return null;
-
-  const fecha = new Date();
-  fecha.setHours(hora, minuto, 0, 0);
-
-  if (fecha.getTime() <= Date.now()) {
-    fecha.setDate(fecha.getDate() + 1);
+  if (Number.isNaN(hora) || Number.isNaN(minuto)) {
+    return {
+      ok: false,
+      error: 'Hora inválida. Usa ejemplo: HOY 5:00 AM, MAÑANA 5:00 AM, o 09/05 5:00 AM'
+    };
   }
 
-  return fecha.getTime();
+  if (minuto < 0 || minuto > 59) {
+    return {
+      ok: false,
+      error: 'Minuto inválido. Usa ejemplo: 5:30 AM'
+    };
+  }
+
+  if (ampm) {
+    if (hora < 1 || hora > 12) {
+      return {
+        ok: false,
+        error: 'Hora inválida. Con AM/PM usa 1 a 12. Ejemplo: 5:00 AM'
+      };
+    }
+
+    if (ampm === 'PM' && hora < 12) hora += 12;
+    if (ampm === 'AM' && hora === 12) hora = 0;
+  } else {
+    if (hora < 0 || hora > 23) {
+      return {
+        ok: false,
+        error: 'Hora inválida. Usa formato 24 horas, ejemplo: 17:00, o usa AM/PM'
+      };
+    }
+  }
+
+  return { ok: true, hora, minuto };
+}
+
+function fechaValidaRD(ano, mes, dia, hora, minuto) {
+  const ts = fechaRDATimestamp(ano, mes, dia, hora, minuto);
+  const d = new Date(ts + ZONA_RD_OFFSET_MS);
+
+  return (
+    d.getUTCFullYear() === ano &&
+    d.getUTCMonth() + 1 === mes &&
+    d.getUTCDate() === dia &&
+    d.getUTCHours() === hora &&
+    d.getUTCMinutes() === minuto
+  );
+}
+
+function calcularHoraProgramada(textoHora) {
+  const original = String(textoHora || '').trim();
+
+  let texto = original
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!texto) {
+    return {
+      ok: false,
+      error: 'Debes escribir fecha y hora. Ejemplo: HOY 5:00 AM'
+    };
+  }
+
+  const hoy = ahoraRDPartes();
+  let fecha = hoy;
+  let horaTexto = texto;
+
+  if (texto.startsWith('HOY ')) {
+    fecha = hoy;
+    horaTexto = texto.replace(/^HOY\s+/, '').trim();
+  } else if (texto.startsWith('MANANA ')) {
+    fecha = sumarDiasRD(hoy, 1);
+    horaTexto = texto.replace(/^MANANA\s+/, '').trim();
+  } else {
+    const mFecha = texto.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\s+(.+)$/);
+
+    if (mFecha) {
+      const dia = Number(mFecha[1]);
+      const mes = Number(mFecha[2]);
+      let ano = mFecha[3] ? Number(mFecha[3]) : hoy.ano;
+
+      if (ano < 100) ano = 2000 + ano;
+
+      fecha = { ano, mes, dia };
+      horaTexto = mFecha[4].trim();
+    } else {
+      // Si solo escribes 5:00 AM, se intenta para HOY.
+      // Si esa hora ya pasó, NO se manda para mañana: da error.
+      fecha = hoy;
+      horaTexto = texto;
+    }
+  }
+
+  const hora = parsearHoraSimple(horaTexto);
+
+  if (!hora.ok) {
+    return hora;
+  }
+
+  if (!fechaValidaRD(fecha.ano, fecha.mes, fecha.dia, hora.hora, hora.minuto)) {
+    return {
+      ok: false,
+      error: 'Fecha inválida. Usa formato DÍA/MES, ejemplo: 09/05 5:00 AM'
+    };
+  }
+
+  const ejecutarEn = fechaRDATimestamp(fecha.ano, fecha.mes, fecha.dia, hora.hora, hora.minuto);
+
+  if (ejecutarEn <= Date.now()) {
+    return {
+      ok: false,
+      error: 'Esa hora ya pasó en República Dominicana. Escribe HOY si es hoy, MAÑANA si es mañana, o pon fecha: 09/05 5:00 AM'
+    };
+  }
+
+  return {
+    ok: true,
+    ejecutarEn,
+    fecha: formatearFechaRD(ejecutarEn)
+  };
 }
 
 function obtenerProgramacionGlobal(accion) {
@@ -506,7 +665,7 @@ function textoProgramacionActual(accion) {
   }
 
   return `${item.horaTexto || 'N/A'}
-Se ejecuta: ${new Date(Number(item.ejecutarEn)).toLocaleString()}
+Se ejecuta: ${formatearFechaRD(Number(item.ejecutarEn))}
 Falta: ${tiempoRestante(Number(item.ejecutarEn))}`;
 }
 
@@ -522,7 +681,6 @@ ${textoProgramacionActual('ACTIVA')}`;
 
 function mensajeProgramarTelegram(accion) {
   const titulo = accion === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
-  const ejemplo = accion === 'PAUSADA' ? '06:00 o 6:00 AM' : '20:00 o 8:00 PM';
 
   return `⏰ PROGRAMACIÓN
 
@@ -531,20 +689,27 @@ ${titulo}
 Estado actual:
 ${textoProgramacionActual(accion)}
 
-Para poner o cambiar la hora, escribe una hora.
-Ejemplo: ${ejemplo}
+Escribe fecha y hora.
+
+Ejemplos:
+HOY 5:00 AM
+MAÑANA 5:00 AM
+09/05 5:00 AM
+
+Formato fecha:
+DÍA/MES HORA
 
 Para quitar esa programación, escribe:
 CANCELAR`;
 }
 
 function programarAccionGlobal(accion, textoHora) {
-  const ejecutarEn = calcularHoraProgramada(textoHora);
+  const resultadoHora = calcularHoraProgramada(textoHora);
 
-  if (!ejecutarEn) {
+  if (!resultadoHora.ok) {
     return {
       ok: false,
-      error: 'Hora inválida. Usa ejemplo: 06:00 o 8:00 PM'
+      error: resultadoHora.error
     };
   }
 
@@ -556,15 +721,15 @@ function programarAccionGlobal(accion, textoHora) {
     id: 'TODAS',
     accion,
     horaTexto: String(textoHora || '').trim(),
-    ejecutarEn
+    ejecutarEn: resultadoHora.ejecutarEn
   });
 
   guardarProgramaciones(data);
 
   return {
     ok: true,
-    ejecutarEn,
-    fecha: new Date(ejecutarEn).toLocaleString()
+    ejecutarEn: resultadoHora.ejecutarEn,
+    fecha: resultadoHora.fecha
   };
 }
 
@@ -600,7 +765,7 @@ function htmlProgramacionesPendientes() {
       ? '⏸ PAUSAR TODAS'
       : '▶️ REANUDAR TODAS';
 
-    const fecha = new Date(Number(item.ejecutarEn)).toLocaleString();
+    const fecha = formatearFechaRD(Number(item.ejecutarEn));
 
     return `
       <div class="programacionItem">
@@ -1951,12 +2116,12 @@ app.get('/', (req, res) => {
         }
 
         if (accion === 'progpausa') {
-          hora = prompt('Escribe la hora para PAUSAR TODAS. Ejemplo: 06:00 o 6:00 AM');
+          hora = prompt('Escribe fecha y hora para PAUSAR TODAS. Ejemplos: HOY 5:00 AM / MAÑANA 5:00 AM / 09/05 5:00 AM');
           if (!hora) return;
         }
 
         if (accion === 'progreanudar') {
-          hora = prompt('Escribe la hora para REANUDAR TODAS. Ejemplo: 20:00 o 8:00 PM');
+          hora = prompt('Escribe fecha y hora para REANUDAR TODAS. Ejemplos: HOY 8:00 AM / MAÑANA 8:00 AM / 09/05 8:00 AM');
           if (!hora) return;
         }
 
