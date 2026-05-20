@@ -456,6 +456,27 @@ function limpiarTextoTelegram(valor) {
 }
 
 // =========================
+// AISLAMIENTO POR GRUPO / CHAT ID
+// =========================
+function normalizarChatId(chatId) {
+  return String(chatId || '').trim();
+}
+
+function idsPorChatId(chatId) {
+  const data = leerData();
+  const chat = normalizarChatId(chatId);
+
+  if (!chat) {
+    return Object.keys(data);
+  }
+
+  return Object.keys(data).filter(id => {
+    asegurarPerfil(data, id);
+    return normalizarChatId(data[id].chat_id) === chat;
+  });
+}
+
+// =========================
 // PROGRAMACIÓN POR HORA
 // =========================
 
@@ -646,19 +667,24 @@ function calcularHoraProgramada(textoHora) {
   };
 }
 
-function obtenerProgramacionGlobal(accion) {
+function obtenerProgramacionGlobal(accion, chatId = null) {
   const data = leerProgramaciones();
+  const chat = normalizarChatId(chatId);
 
   const pendientes = data.items
     .filter(item => item && item.accion === accion)
+    .filter(item => {
+      const itemChat = normalizarChatId(item.chatId);
+      return chat ? itemChat === chat : itemChat === '';
+    })
     .filter(item => item.ejecutarEn && Date.now() < Number(item.ejecutarEn))
     .sort((a, b) => Number(a.ejecutarEn) - Number(b.ejecutarEn));
 
   return pendientes[0] || null;
 }
 
-function textoProgramacionActual(accion) {
-  const item = obtenerProgramacionGlobal(accion);
+function textoProgramacionActual(accion, chatId = null) {
+  const item = obtenerProgramacionGlobal(accion, chatId);
 
   if (!item) {
     return 'No programado';
@@ -669,17 +695,17 @@ Se ejecuta: ${formatearFechaRD(Number(item.ejecutarEn))}
 Falta: ${tiempoRestante(Number(item.ejecutarEn))}`;
 }
 
-function resumenProgramacionesTelegram() {
+function resumenProgramacionesTelegram(chatId = null) {
   return `⏰ PROGRAMACIONES ACTUALES
 
 ⏸ Pausar todas:
-${textoProgramacionActual('PAUSADA')}
+${textoProgramacionActual('PAUSADA', chatId)}
 
 ▶️ Reanudar todas:
-${textoProgramacionActual('ACTIVA')}`;
+${textoProgramacionActual('ACTIVA', chatId)}`;
 }
 
-function mensajeProgramarTelegram(accion) {
+function mensajeProgramarTelegram(accion, chatId = null) {
   const titulo = accion === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
 
   return `⏰ PROGRAMACIÓN
@@ -687,7 +713,7 @@ function mensajeProgramarTelegram(accion) {
 ${titulo}
 
 Estado actual:
-${textoProgramacionActual(accion)}
+${textoProgramacionActual(accion, chatId)}
 
 Escribe fecha y hora.
 
@@ -703,7 +729,7 @@ Para quitar esa programación, escribe:
 CANCELAR`;
 }
 
-function programarAccionGlobal(accion, textoHora) {
+function programarAccionGlobal(accion, textoHora, chatId = null) {
   const resultadoHora = calcularHoraProgramada(textoHora);
 
   if (!resultadoHora.ok) {
@@ -714,12 +740,16 @@ function programarAccionGlobal(accion, textoHora) {
   }
 
   const data = leerProgramaciones();
+  const chat = normalizarChatId(chatId);
 
-  data.items = data.items.filter(item => item.accion !== accion);
+  data.items = data.items.filter(item => {
+    return !(item.accion === accion && normalizarChatId(item.chatId) === chat);
+  });
 
   data.items.push({
     id: 'TODAS',
     accion,
+    chatId: chat,
     horaTexto: String(textoHora || '').trim(),
     ejecutarEn: resultadoHora.ejecutarEn
   });
@@ -733,11 +763,14 @@ function programarAccionGlobal(accion, textoHora) {
   };
 }
 
-function cancelarProgramacionGlobal(accion) {
+function cancelarProgramacionGlobal(accion, chatId = null) {
   const data = leerProgramaciones();
   const antes = data.items.length;
+  const chat = normalizarChatId(chatId);
 
-  data.items = data.items.filter(item => item.accion !== accion);
+  data.items = data.items.filter(item => {
+    return !(item.accion === accion && normalizarChatId(item.chatId) === chat);
+  });
 
   guardarProgramaciones(data);
 
@@ -766,10 +799,12 @@ function htmlProgramacionesPendientes() {
       : '▶️ REANUDAR TODAS';
 
     const fecha = formatearFechaRD(Number(item.ejecutarEn));
+    const grupo = item.chatId ? `<div>Grupo Chat ID: ${escaparHtml(item.chatId)}</div>` : `<div>Grupo: GLOBAL ADMIN</div>`;
 
     return `
       <div class="programacionItem">
         <div><strong>${accionTxt}</strong></div>
+        ${grupo}
         <div>Hora puesta: ${escaparHtml(item.horaTexto || 'N/A')}</div>
         <div>Se ejecuta: ${escaparHtml(fecha)}</div>
         <div>Falta: ${escaparHtml(tiempoRestante(Number(item.ejecutarEn)))}</div>
@@ -984,22 +1019,24 @@ function cambiarEstadoPerfil(id, estado) {
   return guardarData(data);
 }
 
-function cambiarEstadoTodos(estado) {
+function cambiarEstadoTodos(estado, chatId = null) {
   if (estado === 'PAUSADA') {
     cancelarColaReanudacion();
   }
 
   const data = leerData();
+  const ids = chatId ? idsPorChatId(chatId) : Object.keys(data);
 
-  for (const id of Object.keys(data)) {
+  for (const id of ids) {
     asegurarPerfil(data, id);
     data[id].estado = estado;
     data[id].ultima_hora = horaActual();
     data[id].ultima_accion =
-      estado === 'ACTIVA' ? 'Reanudado globalmente' : 'Pausado globalmente';
+      estado === 'ACTIVA' ? 'Reanudado por grupo' : 'Pausado por grupo';
   }
 
   guardarData(data);
+  return ids.length;
 }
 
 function limpiarAlertasPerfil(id) {
@@ -1660,17 +1697,17 @@ async function procesarCallback(q) {
   const chatId = q.message?.chat?.id || CHAT_ID;
 
   if (data === 'pausar_todas') {
-    cancelarColaReanudacion();
-    cambiarEstadoTodos('PAUSADA');
-    await responderCallback(callbackId, 'Todas pausadas');
-    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.', chatId);
+    const total = cambiarEstadoTodos('PAUSADA', chatId);
+    await responderCallback(callbackId, 'Grupo pausado');
+    await enviarTexto(`⏸ Se pausaron ${total} perfiles de este grupo. Cola cancelada.`, chatId);
     return;
   }
 
   if (data === 'reanudar_todas') {
-    reanudarTodasEnCola();
-    await responderCallback(callbackId, 'Reanudando en cola');
-    await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.', chatId);
+    const total = idsPorChatId(chatId).length;
+    reanudarTodasEnCola(chatId);
+    await responderCallback(callbackId, 'Reanudando grupo');
+    await enviarTexto(`▶️ Reanudando ${total} perfiles de este grupo en cola cada 45 segundos.`, chatId);
     return;
   }
 
@@ -1710,7 +1747,7 @@ async function procesarCallback(q) {
     guardarState(state);
 
     await responderCallback(callbackId, 'Programar pausa');
-    await enviarTexto(mensajeProgramarTelegram('PAUSADA'), chatId);
+    await enviarTexto(mensajeProgramarTelegram('PAUSADA', chatId), chatId);
     return;
   }
 
@@ -1724,7 +1761,7 @@ async function procesarCallback(q) {
     guardarState(state);
 
     await responderCallback(callbackId, 'Programar reanudar');
-    await enviarTexto(mensajeProgramarTelegram('ACTIVA'), chatId);
+    await enviarTexto(mensajeProgramarTelegram('ACTIVA', chatId), chatId);
     return;
   }
 
@@ -1794,8 +1831,12 @@ async function revisarTelegram() {
           const textoOriginal = msg.text.trim();
           const texto = textoOriginal.toUpperCase();
 
-          if (state.esperandoProgramacion) {
+          if (
+            state.esperandoProgramacion &&
+            normalizarChatId(state.esperandoProgramacion.chatId) === normalizarChatId(chatId)
+          ) {
             const accionPendiente = state.esperandoProgramacion.accion;
+            const chatProgramacion = state.esperandoProgramacion.chatId || chatId;
 
             if (
               texto === 'CANCELAR' ||
@@ -1803,7 +1844,7 @@ async function revisarTelegram() {
               texto === 'QUITAR' ||
               texto === 'BORRAR'
             ) {
-              const borradas = cancelarProgramacionGlobal(accionPendiente);
+              const borradas = cancelarProgramacionGlobal(accionPendiente, chatProgramacion);
 
               const nuevoState = leerState();
               nuevoState.esperandoProgramacion = null;
@@ -1819,14 +1860,14 @@ ${accionTexto}
 
 Borradas: ${borradas}
 
-${resumenProgramacionesTelegram()}`,
+${resumenProgramacionesTelegram(chatProgramacion)}`,
                 chatId
               );
 
               continue;
             }
 
-            const resultado = programarAccionGlobal(accionPendiente, textoOriginal);
+            const resultado = programarAccionGlobal(accionPendiente, textoOriginal, chatProgramacion);
 
             const nuevoState = leerState();
             nuevoState.esperandoProgramacion = null;
@@ -1837,7 +1878,7 @@ ${resumenProgramacionesTelegram()}`,
               await enviarTexto(
                 `⚠️ ${resultado.error}
 
-${mensajeProgramarTelegram(accionPendiente)}`,
+${mensajeProgramarTelegram(accionPendiente, chatProgramacion)}`,
                 chatId
               );
               continue;
@@ -1856,7 +1897,7 @@ ${textoOriginal}
 Se ejecutará:
 ${resultado.fecha}
 
-${resumenProgramacionesTelegram()}`,
+${resumenProgramacionesTelegram(chatProgramacion)}`,
               chatId
             );
 
@@ -1960,26 +2001,32 @@ async function ejecutarProgramaciones() {
     if (Date.now() >= Number(item.ejecutarEn)) {
       cambio = true;
 
+      const chatDestino = normalizarChatId(item.chatId) || CHAT_ID;
+
       if (item.accion === 'PAUSADA') {
-        cancelarColaReanudacion();
-        cambiarEstadoTodos('PAUSADA');
+        const total = cambiarEstadoTodos('PAUSADA', item.chatId || null);
 
         await enviarTexto(
           `⏰ Programación ejecutada
 
 Acción: PAUSAR TODAS
-Hora programada: ${item.horaTexto || 'N/A'}`
+Perfiles afectados: ${total}
+Hora programada: ${item.horaTexto || 'N/A'}`,
+          chatDestino
         );
       } else if (item.accion === 'ACTIVA') {
-        reanudarTodasEnCola();
+        const total = idsPorChatId(item.chatId || null).length;
+        reanudarTodasEnCola(item.chatId || null);
 
         await enviarTexto(
           `⏰ Programación ejecutada
 
 Acción: REANUDAR TODAS
+Perfiles afectados: ${total}
 Hora programada: ${item.horaTexto || 'N/A'}
 
-Reanudando en cola cada 45 segundos.`
+Reanudando en cola cada 45 segundos.`,
+          chatDestino
         );
       }
     } else {
@@ -2116,12 +2163,12 @@ app.get('/', (req, res) => {
         }
 
         if (accion === 'progpausa') {
-          hora = prompt('Escribe fecha y hora para PAUSAR TODAS. Ejemplos: HOY 5:00 AM / MAÑANA 5:00 AM / 09/05 5:00 AM');
+          hora = prompt('Escribe fecha y hora para PAUSAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 5:00 AM / MAÑANA 5:00 AM / 09/05 5:00 AM');
           if (!hora) return;
         }
 
         if (accion === 'progreanudar') {
-          hora = prompt('Escribe fecha y hora para REANUDAR TODAS. Ejemplos: HOY 8:00 AM / MAÑANA 8:00 AM / 09/05 8:00 AM');
+          hora = prompt('Escribe fecha y hora para REANUDAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 8:00 AM / MAÑANA 8:00 AM / 09/05 8:00 AM');
           if (!hora) return;
         }
 
@@ -2362,6 +2409,8 @@ app.post('/accion', async (req, res) => {
     return res.status(404).send('Perfil no encontrado');
   }
 
+  const chatGrupoPerfil = normalizarChatId(data[id].chat_id);
+
   if (accion === 'pausar') {
     cambiarEstadoPerfil(id, 'PAUSADA');
     await enviarEstadoPerfil(id);
@@ -2389,20 +2438,26 @@ app.post('/accion', async (req, res) => {
       await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
     }
   } else if (accion === 'progpausa') {
-    const resultado = programarAccionGlobal('PAUSADA', hora);
+    const resultado = programarAccionGlobal('PAUSADA', hora, chatGrupoPerfil || null);
 
     if (resultado.ok) {
-      await enviarTexto(`✅ Programado desde panel\nAcción: PAUSAR TODAS\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`);
+      await enviarTexto(
+        `✅ Programado desde panel\nAcción: PAUSAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`,
+        chatGrupoPerfil || CHAT_ID
+      );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`);
+      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
     }
   } else if (accion === 'progreanudar') {
-    const resultado = programarAccionGlobal('ACTIVA', hora);
+    const resultado = programarAccionGlobal('ACTIVA', hora, chatGrupoPerfil || null);
 
     if (resultado.ok) {
-      await enviarTexto(`✅ Programado desde panel\nAcción: REANUDAR TODAS\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`);
+      await enviarTexto(
+        `✅ Programado desde panel\nAcción: REANUDAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`,
+        chatGrupoPerfil || CHAT_ID
+      );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`);
+      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
     }
   } else if (accion === 'ultima') {
     await enviarUltimaActualizacion(id);
@@ -2420,10 +2475,11 @@ app.post('/accion', async (req, res) => {
 app.post('/accion-global', async (req, res) => {
   const { accion } = req.body;
 
+  // Estos dos botones de arriba del panel quedan como ADMIN GLOBAL.
+  // Los botones de cada perfil y Telegram trabajan por Chat ID/grupo.
   if (accion === 'pausar_todas') {
-    cancelarColaReanudacion();
-    cambiarEstadoTodos('PAUSADA');
-    await enviarTexto('⏸ Todas las páginas quedaron en PAUSADA. Cola cancelada.');
+    const total = cambiarEstadoTodos('PAUSADA');
+    await enviarTexto(`⏸ Todas las páginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`);
   } else if (accion === 'reanudar_todas') {
     reanudarTodasEnCola();
     await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.');
@@ -2448,7 +2504,12 @@ async function procesarColaReanudacion(versionActiva) {
   if (versionActiva !== colaVersion) return;
 
   cambiarEstadoPerfil(id, 'ACTIVA');
-  await enviarTexto(`▶️ Perfil ${id} reanudado automáticamente en cola.`);
+
+  const data = leerData();
+  const perfil = data[id];
+  const destino = perfil?.chat_id || CHAT_ID;
+
+  await enviarTexto(`▶️ Perfil ${id} reanudado automáticamente en cola.`, destino);
   await enviarEstadoPerfil(id);
 
   if (versionActiva !== colaVersion) return;
@@ -2462,11 +2523,10 @@ async function procesarColaReanudacion(versionActiva) {
   }
 }
 
-function reanudarTodasEnCola() {
+function reanudarTodasEnCola(chatId = null) {
   cancelarColaReanudacion();
 
-  const data = leerData();
-  colaReanudacion = Object.keys(data);
+  colaReanudacion = chatId ? idsPorChatId(chatId) : Object.keys(leerData());
 
   const versionActiva = colaVersion;
 

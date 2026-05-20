@@ -4,15 +4,26 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "axios": "^1.14.0",
+    "axios": "^1.16.0",
     "cors": "^2.8.6",
-    "express": "^5.2.1"
-  }
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "sharp": "^0.34.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elviejitos11-creator/panel-control-300.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elviejitos11-creator/panel-control-300/issues"
+  },
+  "homepage": "https://github.com/elviejitos11-creator/panel-control-300#readme"
 }
