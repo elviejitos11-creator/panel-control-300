@@ -359,29 +359,24 @@ function tiempoProximoPost(perfil) {
     : (perfil.proximo_post || 'N/A');
 }
 
-// =========================
-// TIEMPO EXACTO DEL PLAN
-// =========================
 function tiempoRestantePlan(fechaFin) {
   if (!fechaFin) return 'N/A';
 
+  const ahora = new Date();
   const fin = new Date(fechaFin);
 
   if (isNaN(fin.getTime())) return fechaFin;
 
-  const diff = fin.getTime() - Date.now();
+  const diff = fin - ahora;
 
   if (diff <= 0) return '❌ Vencido';
 
-  // Se redondea al minuto superior para que, al guardar
-  // "6 días", el panel comience mostrando 6 días, 0h 0m.
-  const totalMinutos = Math.ceil(diff / (1000 * 60));
+  const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutos = Math.floor((diff / (1000 * 60)) % 60);
+  const segundos = Math.floor((diff / 1000) % 60);
 
-  const dias = Math.floor(totalMinutos / (24 * 60));
-  const horas = Math.floor((totalMinutos % (24 * 60)) / 60);
-  const minutos = totalMinutos % 60;
-
-  return `${dias} días, ${horas}h ${minutos}m`;
+  return `${dias} días, ${horas}h ${minutos}m ${segundos}s`;
 }
 
 function planVencido(perfil) {
@@ -401,63 +396,25 @@ function puedeContarBump(perfil) {
   return true;
 }
 
-// =========================
-// CONVERTIR DURACIÓN EXACTA
-// =========================
 function convertirFinPlan(valor) {
   if (!valor) return '';
 
-  const texto = String(valor)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
+  const texto = String(valor).trim().toLowerCase();
 
-  // Si ya está guardado como fecha ISO, no reinicia el plan.
-  if (/^\d{4}-\d{2}-\d{2}(t\d{2}:\d{2}:\d{2}(?:\.\d{3})?z?)?$/.test(texto)) {
+  if (/^\d{4}-\d{2}-\d{2}(t\d{2}:\d{2}:\d{2})?$/.test(texto)) {
     return valor;
   }
 
-  // Acepta:
-  // 6 días
-  // 6 días 18 horas
-  // 6 días 18 minutos
-  // 6 días 18 horas 30 minutos
-  // También acepta "y": 6 días y 18 horas.
-
-  const patron =
-    /^(\d+)\s*dias?(?:\s*(?:y\s*)?(\d+)\s*horas?)?(?:\s*(?:y\s*)?(\d+)\s*minutos?)?$/;
-
-  const m = texto.match(patron);
-
-  if (!m) {
-    return valor;
+  const m = texto.match(/^(\d+)\s*d[ií]a?s?$/);
+  if (m) {
+    const dias = Number(m[1]);
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + dias);
+    fecha.setHours(23, 59, 59, 0);
+    return fecha.toISOString().slice(0, 19);
   }
 
-  const dias = Number(m[1] || 0);
-  const horas = Number(m[2] || 0);
-  const minutos = Number(m[3] || 0);
-
-  if (
-    !Number.isFinite(dias) ||
-    !Number.isFinite(horas) ||
-    !Number.isFinite(minutos) ||
-    dias < 0 ||
-    horas < 0 ||
-    minutos < 0
-  ) {
-    return valor;
-  }
-
-  const duracionMs =
-    dias * 24 * 60 * 60 * 1000 +
-    horas * 60 * 60 * 1000 +
-    minutos * 60 * 1000;
-
-  const fechaFin = new Date(Date.now() + duracionMs);
-
-  return fechaFin.toISOString();
+  return valor;
 }
 
 function tokenDesdeRequest(req) {
@@ -523,6 +480,7 @@ function idsPorChatId(chatId) {
 // PROGRAMACIÓN POR HORA
 // =========================
 
+// Hora fija de República Dominicana. Así no depende de la hora rara de Railway.
 const ZONA_RD_OFFSET_MS = -4 * 60 * 60 * 1000;
 
 function pad2(n) {
@@ -673,6 +631,8 @@ function calcularHoraProgramada(textoHora) {
       fecha = { ano, mes, dia };
       horaTexto = mFecha[4].trim();
     } else {
+      // Si solo escribes 5:00 AM, se intenta para HOY.
+      // Si esa hora ya pasó, NO se manda para mañana: da error.
       fecha = hoy;
       horaTexto = texto;
     }
@@ -1106,22 +1066,26 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
+  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
+  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
+  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
+  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
   data[id].ultima_alerta = '';
   data[id].ultima_alerta_tipo = '';
