@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 const PORT = 3000;
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '8216481031:AAFuClYkvFOPZ7VSRvtkKA0dcvqSEEA5bws';
+const BOT_TOKEN = '';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
@@ -396,6 +396,9 @@ function puedeContarBump(perfil) {
   return true;
 }
 
+// =========================
+// FIN DE PLAN EXACTO
+// =========================
 function convertirFinPlan(valor) {
   if (!valor) return '';
 
@@ -406,12 +409,14 @@ function convertirFinPlan(valor) {
   }
 
   const m = texto.match(/^(\d+)\s*d[ií]a?s?$/);
+
   if (m) {
     const dias = Number(m[1]);
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + dias);
-    fecha.setHours(23, 59, 59, 0);
-    return fecha.toISOString().slice(0, 19);
+
+    // Cada día = exactamente 24 horas desde este momento.
+    const fechaFin = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+
+    return fechaFin.toISOString();
   }
 
   return valor;
@@ -631,8 +636,6 @@ function calcularHoraProgramada(textoHora) {
       fecha = { ano, mes, dia };
       horaTexto = mFecha[4].trim();
     } else {
-      // Si solo escribes 5:00 AM, se intenta para HOY.
-      // Si esa hora ya pasó, NO se manda para mañana: da error.
       fecha = hoy;
       horaTexto = texto;
     }
@@ -1066,26 +1069,22 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
-  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
-  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
-  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
-  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
   data[id].ultima_alerta = '';
   data[id].ultima_alerta_tipo = '';
@@ -1610,10 +1609,6 @@ app.post('/registrar-evento', async (req, res) => {
   if (ubicacion) perfil.ubicacion = ubicacion;
   if (typeof texto === 'string') perfil.texto = texto;
 
-  // IMPORTANTE:
-  // /registrar-evento NO puede cambiar estado.
-  // Solo el panel/botones o /registrar-alerta pueden cambiar estado.
-
   if (foto_modelo) perfil.foto_modelo = foto_modelo;
   if (foto_pagina) perfil.foto_pagina = foto_pagina;
 
@@ -1786,6 +1781,7 @@ async function procesarCallback(q) {
   if (accion === 'reiniciar') {
     const ok = cambiarEstadoPerfil(id, 'ACTIVA');
     await responderCallback(callbackId, ok ? 'Bot reiniciado' : 'No encontrado');
+
     if (ok) {
       await enviarTexto(`🔄 Perfil ${id} reiniciado y puesto en ACTIVA.`, chatId);
       await enviarEstadoPerfil(id);
@@ -1851,7 +1847,9 @@ async function revisarTelegram() {
               nuevoState.offset = u.update_id;
               guardarStateTelegramSeguro(nuevoState);
 
-              const accionTexto = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+              const accionTexto = accionPendiente === 'PAUSADA'
+                ? '⏸ PAUSAR TODAS'
+                : '▶️ REANUDAR TODAS';
 
               await enviarTexto(
                 `✅ PROGRAMACIÓN QUITADA
@@ -1867,7 +1865,11 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
               continue;
             }
 
-            const resultado = programarAccionGlobal(accionPendiente, textoOriginal, chatProgramacion);
+            const resultado = programarAccionGlobal(
+              accionPendiente,
+              textoOriginal,
+              chatProgramacion
+            );
 
             const nuevoState = leerState();
             nuevoState.esperandoProgramacion = null;
@@ -1884,7 +1886,9 @@ ${mensajeProgramarTelegram(accionPendiente, chatProgramacion)}`,
               continue;
             }
 
-            const palabra = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+            const palabra = accionPendiente === 'PAUSADA'
+              ? '⏸ PAUSAR TODAS'
+              : '▶️ REANUDAR TODAS';
 
             await enviarTexto(
               `✅ PROGRAMACIÓN GUARDADA
@@ -1978,9 +1982,11 @@ async function ejecutarProgramaciones() {
     if (Date.now() >= Number(item.ejecutarEn)) {
       cambioViejo = true;
       cambiarEstadoPerfil(item.id, item.accion);
+
       await enviarTexto(
         `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
       );
+
       await enviarEstadoPerfil(item.id);
     } else {
       pendientesViejas.push(item);
@@ -2045,6 +2051,7 @@ Reanudando en cola cada 45 segundos.`,
 // =========================
 app.get('/', (req, res) => {
   const data = leerData();
+
   let html = `
   <html>
   <head>
@@ -2079,6 +2086,7 @@ app.get('/', (req, res) => {
   </head>
   <body>
     <h1>🔥 PANEL PRO 🔥</h1>
+
     <div style="margin-bottom:16px;">
       <button class="danger" onclick="accionGlobal('pausar_todas')">⏸ Pausar todas</button>
       <button class="success" onclick="accionGlobal('reanudar_todas')">▶️ Reanudar todas</button>
@@ -2092,7 +2100,11 @@ app.get('/', (req, res) => {
 
   for (const id of Object.keys(data)) {
     const p = data[id];
-    const totalFotos = Array.isArray(p.historial_fotos) ? p.historial_fotos.length : 0;
+
+    const totalFotos = Array.isArray(p.historial_fotos)
+      ? p.historial_fotos.length
+      : 0;
+
     const alertaHtml = p.ultima_alerta
       ? `
         <div class="alertaBox">
@@ -2141,6 +2153,7 @@ app.get('/', (req, res) => {
 
   html += `
     </div>
+
     <script>
       setInterval(() => {
         location.reload();
@@ -2177,6 +2190,7 @@ app.get('/', (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, accion, hora })
         });
+
         location.reload();
       }
 
@@ -2186,6 +2200,7 @@ app.get('/', (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion })
         });
+
         location.reload();
       }
     </script>
@@ -2215,6 +2230,7 @@ app.get('/nuevo', (req, res) => {
   </head>
   <body>
     <h1>➕ Nuevo perfil</h1>
+
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
         <label>ID del perfil</label>
@@ -2296,6 +2312,7 @@ app.get('/editar/:id', (req, res) => {
   </head>
   <body>
     <h1>✏️ Editar perfil ${id}</h1>
+
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
         <input type="hidden" name="id" value="${id}" />
@@ -2421,7 +2438,9 @@ app.post('/accion', async (req, res) => {
     const nuevoToken = resetearAccesoPerfil(id);
 
     if (nuevoToken) {
-      await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
+      await enviarTexto(
+        `🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`
+      );
     }
   } else if (accion === 'limpiaralerta') {
     const ok = limpiarAlertasPerfil(id);
@@ -2438,7 +2457,11 @@ app.post('/accion', async (req, res) => {
       await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
     }
   } else if (accion === 'progpausa') {
-    const resultado = programarAccionGlobal('PAUSADA', hora, chatGrupoPerfil || null);
+    const resultado = programarAccionGlobal(
+      'PAUSADA',
+      hora,
+      chatGrupoPerfil || null
+    );
 
     if (resultado.ok) {
       await enviarTexto(
@@ -2446,10 +2469,17 @@ app.post('/accion', async (req, res) => {
         chatGrupoPerfil || CHAT_ID
       );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
+      await enviarTexto(
+        `⚠️ No se pudo programar: ${resultado.error}`,
+        chatGrupoPerfil || CHAT_ID
+      );
     }
   } else if (accion === 'progreanudar') {
-    const resultado = programarAccionGlobal('ACTIVA', hora, chatGrupoPerfil || null);
+    const resultado = programarAccionGlobal(
+      'ACTIVA',
+      hora,
+      chatGrupoPerfil || null
+    );
 
     if (resultado.ok) {
       await enviarTexto(
@@ -2457,7 +2487,10 @@ app.post('/accion', async (req, res) => {
         chatGrupoPerfil || CHAT_ID
       );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
+      await enviarTexto(
+        `⚠️ No se pudo programar: ${resultado.error}`,
+        chatGrupoPerfil || CHAT_ID
+      );
     }
   } else if (accion === 'ultima') {
     await enviarUltimaActualizacion(id);
@@ -2475,11 +2508,12 @@ app.post('/accion', async (req, res) => {
 app.post('/accion-global', async (req, res) => {
   const { accion } = req.body;
 
-  // Estos dos botones de arriba del panel quedan como ADMIN GLOBAL.
-  // Los botones de cada perfil y Telegram trabajan por Chat ID/grupo.
   if (accion === 'pausar_todas') {
     const total = cambiarEstadoTodos('PAUSADA');
-    await enviarTexto(`⏸ Todas las páginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`);
+
+    await enviarTexto(
+      `⏸ Todas las páginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`
+    );
   } else if (accion === 'reanudar_todas') {
     reanudarTodasEnCola();
     await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.');
@@ -2509,7 +2543,11 @@ async function procesarColaReanudacion(versionActiva) {
   const perfil = data[id];
   const destino = perfil?.chat_id || CHAT_ID;
 
-  await enviarTexto(`▶️ Perfil ${id} reanudado automáticamente en cola.`, destino);
+  await enviarTexto(
+    `▶️ Perfil ${id} reanudado automáticamente en cola.`,
+    destino
+  );
+
   await enviarEstadoPerfil(id);
 
   if (versionActiva !== colaVersion) return;
@@ -2526,7 +2564,9 @@ async function procesarColaReanudacion(versionActiva) {
 function reanudarTodasEnCola(chatId = null) {
   cancelarColaReanudacion();
 
-  colaReanudacion = chatId ? idsPorChatId(chatId) : Object.keys(leerData());
+  colaReanudacion = chatId
+    ? idsPorChatId(chatId)
+    : Object.keys(leerData());
 
   const versionActiva = colaVersion;
 
