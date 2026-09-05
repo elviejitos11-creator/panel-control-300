@@ -359,22 +359,28 @@ function tiempoProximoPost(perfil) {
     : (perfil.proximo_post || 'N/A');
 }
 
+// =========================
+// TIEMPO EXACTO DEL PLAN
+// =========================
 function tiempoRestantePlan(fechaFin) {
   if (!fechaFin) return 'N/A';
 
-  const ahora = new Date();
   const fin = new Date(fechaFin);
 
   if (isNaN(fin.getTime())) return fechaFin;
 
-  const diff = fin - ahora;
+  const diff = fin.getTime() - Date.now();
 
   if (diff <= 0) return '❌ Vencido';
 
-  const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutos = Math.floor((diff / (1000 * 60)) % 60);
-  const segundos = Math.floor((diff / 1000) % 60);
+  // Ceil evita que un plan recién creado de 7 días aparezca
+  // inmediatamente como 6 días, 23h, 59m, 59s.
+  const totalSegundos = Math.ceil(diff / 1000);
+
+  const dias = Math.floor(totalSegundos / 86400);
+  const horas = Math.floor((totalSegundos % 86400) / 3600);
+  const minutos = Math.floor((totalSegundos % 3600) / 60);
+  const segundos = totalSegundos % 60;
 
   return `${dias} días, ${horas}h ${minutos}m ${segundos}s`;
 }
@@ -396,25 +402,63 @@ function puedeContarBump(perfil) {
   return true;
 }
 
+// =========================
+// CONVERTIR DURACIÓN EXACTA
+// =========================
 function convertirFinPlan(valor) {
   if (!valor) return '';
 
-  const texto = String(valor).trim().toLowerCase();
+  const texto = String(valor)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 
-  if (/^\d{4}-\d{2}-\d{2}(t\d{2}:\d{2}:\d{2})?$/.test(texto)) {
+  // Si ya es una fecha absoluta guardada, se conserva tal cual.
+  if (
+    /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}(?:\.\d{3})?z?$/.test(texto) ||
+    /^\d{4}-\d{2}-\d{2}$/.test(texto)
+  ) {
     return valor;
   }
 
-  const m = texto.match(/^(\d+)\s*d[ií]a?s?$/);
-  if (m) {
-    const dias = Number(m[1]);
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + dias);
-    fecha.setHours(23, 59, 59, 0);
-    return fecha.toISOString().slice(0, 19);
+  // Ejemplos aceptados:
+  // 7 días
+  // 2 días 2 horas
+  // 2 días 37 minutos
+  // 2 días 2 horas 37 minutos
+  // 2 días y 2 horas y 37 minutos
+  const patron =
+    /^(\d+)\s*dias?(?:\s*(?:y\s*)?(\d+)\s*horas?)?(?:\s*(?:y\s*)?(\d+)\s*minutos?)?$/;
+
+  const m = texto.match(patron);
+
+  if (!m) {
+    return valor;
   }
 
-  return valor;
+  const dias = Number(m[1] || 0);
+  const horas = Number(m[2] || 0);
+  const minutos = Number(m[3] || 0);
+
+  if (
+    !Number.isFinite(dias) ||
+    !Number.isFinite(horas) ||
+    !Number.isFinite(minutos) ||
+    dias < 0 ||
+    horas < 0 ||
+    minutos < 0
+  ) {
+    return valor;
+  }
+
+  const duracionMs =
+    dias * 24 * 60 * 60 * 1000 +
+    horas * 60 * 60 * 1000 +
+    minutos * 60 * 1000;
+
+  return new Date(Date.now() + duracionMs).toISOString();
 }
 
 function tokenDesdeRequest(req) {
@@ -1641,7 +1685,10 @@ app.post('/registrar-evento', async (req, res) => {
     }
   }
 
-  if (fin_plan) perfil.fin_plan = convertirFinPlan(fin_plan);
+  // IMPORTANTE:
+  // EL POST NO RENUEVA NI REINICIA EL PLAN.
+  // fin_plan solamente se establece o renueva desde /guardar-perfil.
+  // Así el vencimiento queda fijo y sigue bajando hasta llegar a cero.
 
   perfil.ultima_hora = ultima_hora || horaActual();
   perfil.ultima_accion = ultima_accion || tipoNormal;
