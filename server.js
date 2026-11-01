@@ -1,3 +1,4 @@
+// CQ_DISENO_PRINCIPAL_V2
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -22,10 +23,21 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = 3000;
+// CQ_PRINCIPAL_PERSISTENCIA_V1
+const PORT = Number(process.env.PORT || 3000);
+
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error('Puerto del servidor invalido');
+}
+
+const STORAGE_DIR = process.env.CQ_DATA_DIR
+  ? path.resolve(process.env.CQ_DATA_DIR)
+  : __dirname;
+
+fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '8455991044:AAGqkkUgzrErvtAMihAAg2eA_MS--45DFYw';
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
@@ -36,14 +48,14 @@ const RULES_TEXT = `📜 Reglas del sistema
 4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el botón Contactar.`;
 
 // archivos locales
-const DATA_FILE = path.join(__dirname, 'data.json');
-const STATE_FILE = path.join(__dirname, 'bot_state.json');
-const DATA_BACKUP_FILE = path.join(__dirname, 'data.backup.json');
-const STATE_BACKUP_FILE = path.join(__dirname, 'bot_state.backup.json');
+const DATA_FILE = path.join(STORAGE_DIR, 'data.json');
+const STATE_FILE = path.join(STORAGE_DIR, 'bot_state.json');
+const DATA_BACKUP_FILE = path.join(STORAGE_DIR, 'data.backup.json');
+const STATE_BACKUP_FILE = path.join(STORAGE_DIR, 'bot_state.backup.json');
 
 // programación separada para que NO se borre al abrir panel ni al tocar Telegram
-const PROGRAMACIONES_FILE = path.join(__dirname, 'programaciones.json');
-const PROGRAMACIONES_BACKUP_FILE = path.join(__dirname, 'programaciones.backup.json');
+const PROGRAMACIONES_FILE = path.join(STORAGE_DIR, 'programaciones.json');
+const PROGRAMACIONES_BACKUP_FILE = path.join(STORAGE_DIR, 'programaciones.backup.json');
 
 // =========================
 // BLOQUEOS DE CICLO
@@ -1637,7 +1649,17 @@ app.post('/registrar-evento', async (req, res) => {
 
   const tipoNormal = String(tipo || 'silencioso').trim().toLowerCase();
 
+  // CQ_PRINCIPAL_API_SEGURA_V1
   const data = leerData();
+
+  if (!Object.prototype.hasOwnProperty.call(data, String(id))) {
+    return res.status(404).json({
+      ok: false,
+      estado: 'NO_EXISTE',
+      error: 'El perfil debe crearse primero desde el panel'
+    });
+  }
+
   asegurarPerfil(data, id);
 
   const perfil = data[id];
@@ -1766,8 +1788,24 @@ async function procesarCallback(q) {
   }
 
   const [accion, id] = data.split('_');
+
   if (!id) {
     await responderCallback(callbackId, 'Acción inválida');
+    return;
+  }
+
+  // CQ_SEGURIDAD_FINAL_V1
+  const perfilDestino = leerData()[id];
+
+  if (!perfilDestino ||
+      !normalizarChatId(perfilDestino.chat_id) ||
+      normalizarChatId(perfilDestino.chat_id) !==
+        normalizarChatId(chatId)) {
+
+    await responderCallback(
+      callbackId,
+      'Perfil no disponible para este chat'
+    );
     return;
   }
 
@@ -1955,8 +1993,18 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
           if (/^P\d+$/.test(texto)) {
             const id = texto.replace('P', '');
             const data = leerData();
-            asegurarPerfil(data, id);
-            guardarData(data);
+
+            if (!data[id] ||
+                !normalizarChatId(data[id].chat_id) ||
+                normalizarChatId(data[id].chat_id) !==
+                  normalizarChatId(chatId)) {
+
+              await enviarTexto(
+                'Perfil no autorizado para este chat',
+                chatId
+              );
+              continue;
+            }
 
             state.esperandoFoto = id;
             guardarStateTelegramSeguro(state);
@@ -1974,7 +2022,21 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
           }
 
           const data = leerData();
-          asegurarPerfil(data, id);
+
+          if (!data[id] ||
+              !normalizarChatId(data[id].chat_id) ||
+              normalizarChatId(data[id].chat_id) !==
+                normalizarChatId(chatId)) {
+
+            state.esperandoFoto = null;
+            guardarStateTelegramSeguro(state);
+
+            await enviarTexto(
+              'Foto rechazada: perfil no autorizado',
+              chatId
+            );
+            continue;
+          }
 
           const fileId = msg.photo[msg.photo.length - 1].file_id;
 
@@ -2089,10 +2151,16 @@ Reanudando en cola cada 45 segundos.`,
 }
 
 // =========================
+const cq = require('./cq_multicliente')(app, {
+  leerData,
+  borrarPerfil
+});
+
 // PANEL WEB
 // =========================
+// CQ_PRINCIPAL_AISLAMIENTO_V1
 app.get('/', (req, res) => {
-  const data = leerData();
+  const data = cq.filtrarData(req, leerData());
   let html = `
   <html>
   <head>
@@ -2132,11 +2200,15 @@ app.get('/', (req, res) => {
     </style>
   </head>
   <body>
-    <h1>🔥 PANEL PRO 🔥</h1>
+    <h1><span style="font-size:1.65em">🐺</span> PANEL PRO <span style="font-size:1.65em">🐺</span></h1>
     <div style="margin-bottom:16px;">
       <button class="danger" onclick="accionGlobal('pausar_todas')">⏸ Pausar todas</button>
       <button class="success" onclick="accionGlobal('reanudar_todas')">▶️ Reanudar todas</button>
       <a class="btn warning" href="/nuevo">➕ Nuevo perfil</a>
+      <!-- CQ_BOTON_ADMIN_PRINCIPAL_V1 -->
+      ${req.cq && req.cq.admin
+        ? '<a class="btn" style="background:#7334e8;color:#fff" href="/admin">⚙️ Administración de clientes</a>'
+        : ''}
     </div>
 
     ${htmlProgramacionesPendientes()}
@@ -2437,11 +2509,18 @@ app.post('/guardar-perfil', (req, res) => {
   }
 
   const data = leerData();
+  const nuevoPerfil =
+    !Object.prototype.hasOwnProperty.call(data, String(id));
+
   asegurarPerfil(data, id);
 
   data[id].nombre = nombre || `Perfil ${id}`;
   data[id].chat_id = chat_id || '';
-  data[id].cliente_token = cliente_token || '';
+  data[id].cliente_token = String(
+    cliente_token ||
+    data[id].cliente_token ||
+    (nuevoPerfil ? generarTokenAcceso() : '')
+  ).trim();
   data[id].telefono = telefono || '';
   data[id].codigo = codigo || '';
   data[id].ubicacion = ubicacion || '';
@@ -2461,6 +2540,7 @@ app.post('/guardar-perfil', (req, res) => {
     return res.status(500).send('No se pudo guardar el perfil');
   }
 
+  cq.registrarPropietario(req, id);
   res.redirect('/');
 });
 
@@ -2496,9 +2576,11 @@ app.post('/accion', async (req, res) => {
       await enviarTexto(`✅ Alerta limpiada\nPerfil: ${id}`);
     }
   } else if (accion === 'borrarperfil') {
+    cq.respaldoBorrado(id);
     const ok = borrarPerfil(id);
 
     if (ok) {
+      cq.quitarPropietario(id);
       await enviarTexto(`🗑️ Perfil borrado correctamente\nPerfil eliminado: ${id}`);
     } else {
       await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
@@ -2540,6 +2622,28 @@ app.post('/accion', async (req, res) => {
 
 app.post('/accion-global', async (req, res) => {
   const { accion } = req.body;
+
+  if (!req.cq) return res.sendStatus(401);
+
+  if (cq.alcance(req) !== 'admin') {
+    const ids = Object.keys(
+      cq.filtrarData(req, leerData())
+    );
+
+    if (accion === 'pausar_todas') {
+      for (const id of ids) {
+        cambiarEstadoPerfil(id, 'PAUSADA');
+      }
+      return res.json({ ok: true, total: ids.length });
+    }
+
+    if (accion === 'reanudar_todas') {
+      reanudarTodasEnCola(ids);
+      return res.json({ ok: true, total: ids.length });
+    }
+
+    return res.sendStatus(400);
+  }
 
   // Estos dos botones de arriba del panel quedan como ADMIN GLOBAL.
   // Los botones de cada perfil y Telegram trabajan por Chat ID/grupo.
@@ -2592,7 +2696,9 @@ async function procesarColaReanudacion(versionActiva) {
 function reanudarTodasEnCola(chatId = null) {
   cancelarColaReanudacion();
 
-  colaReanudacion = chatId ? idsPorChatId(chatId) : Object.keys(leerData());
+  colaReanudacion = Array.isArray(chatId)
+    ? chatId.filter(id => Object.prototype.hasOwnProperty.call(leerData(), id))
+    : (chatId ? idsPorChatId(chatId) : Object.keys(leerData()));
 
   const versionActiva = colaVersion;
 
@@ -2623,7 +2729,7 @@ async function cicloPrincipal() {
 // =========================
 // START
 // =========================
-app.listen(PORT, async () => {
+app.listen(PORT, process.env.CQ_TEST_MODE === '1' ? '127.0.0.1' : '0.0.0.0', async () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 
   if (!existeArchivoSeguro(DATA_FILE)) {
@@ -2646,6 +2752,12 @@ app.listen(PORT, async () => {
     guardarProgramaciones({ items: [] });
   }
 
-  await apiTelegram('deleteWebhook', {});
-  cicloPrincipal();
+      // CQ_PRINCIPAL_MODO_PRUEBA_V1
+    if (process.env.CQ_TEST_MODE === '1') {
+      console.log('MODO PRUEBA: TELEGRAM NO SE INICIA');
+      return;
+    }
+
+    await apiTelegram('deleteWebhook', {});
+    cicloPrincipal();
 });
