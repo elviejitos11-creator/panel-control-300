@@ -1,4 +1,3 @@
-
 // CQ_DISENO_PRINCIPAL_V2
 const express = require('express');
 const axios = require('axios');
@@ -10,7 +9,7 @@ let FormData = null;
 try {
   FormData = require('form-data');
 } catch (e) {
-  console.log('⚠️ Falta form-data. Corre: npm install form-data');
+  console.log('ΓÜá∩╕Å Falta form-data. Corre: npm install form-data');
 }
 
 const app = express();
@@ -41,12 +40,12 @@ fs.mkdirSync(STORAGE_DIR, { recursive: true });
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
-const RULES_TEXT = `📜 Reglas del sistema
+const RULES_TEXT = `≡ƒô£ Reglas del sistema
 
-1. Antes de comenzar a trabajar, revisa que cada perfil tenga su información correcta y actualizada.
-2. Las fotos enviadas por el sistema son reales y actualizadas en vivo cuando llega la notificación.
-3. Cada actualización debe revisarse con atención para mantener el trabajo limpio, organizado y seguro.
-4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el botón Contactar.`;
+1. Antes de comenzar a trabajar, revisa que cada perfil tenga su informaci├│n correcta y actualizada.
+2. Las fotos enviadas por el sistema son reales y actualizadas en vivo cuando llega la notificaci├│n.
+3. Cada actualizaci├│n debe revisarse con atenci├│n para mantener el trabajo limpio, organizado y seguro.
+4. Si necesitas ayuda, por favor contacta soporte al +1 809 776 0519 o usa el bot├│n Contactar.`;
 
 // archivos locales
 const DATA_FILE = path.join(STORAGE_DIR, 'data.json');
@@ -54,7 +53,7 @@ const STATE_FILE = path.join(STORAGE_DIR, 'bot_state.json');
 const DATA_BACKUP_FILE = path.join(STORAGE_DIR, 'data.backup.json');
 const STATE_BACKUP_FILE = path.join(STORAGE_DIR, 'bot_state.backup.json');
 
-// programación separada para que NO se borre al abrir panel ni al tocar Telegram
+// programaci├│n separada para que NO se borre al abrir panel ni al tocar Telegram
 const PROGRAMACIONES_FILE = path.join(STORAGE_DIR, 'programaciones.json');
 const PROGRAMACIONES_BACKUP_FILE = path.join(STORAGE_DIR, 'programaciones.backup.json');
 
@@ -65,7 +64,7 @@ let telegramEnProceso = false;
 let cicloEnProceso = false;
 
 // =========================
-// COLA DE REANUDACIÓN
+// COLA DE REANUDACI├ôN
 // =========================
 let colaReanudacion = null;
 let colaTimeout = null;
@@ -138,7 +137,7 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
     const raw = fs.readFileSync(file, 'utf8');
 
     if (protegerContraVacio && (!raw || !raw.trim())) {
-      throw new Error('Archivo vacío');
+      throw new Error('Archivo vac├¡o');
     }
 
     const parsed = JSON.parse(raw);
@@ -151,7 +150,7 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
         Array.isArray(parsed)
       )
     ) {
-      throw new Error('JSON inválido para objeto principal');
+      throw new Error('JSON inv├ílido para objeto principal');
     }
 
     return parsed;
@@ -164,7 +163,7 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
       const rawBackup = fs.readFileSync(backupFile, 'utf8');
 
       if (protegerContraVacio && (!rawBackup || !rawBackup.trim())) {
-        throw new Error('Backup vacío');
+        throw new Error('Backup vac├¡o');
       }
 
       const parsedBackup = JSON.parse(rawBackup);
@@ -177,7 +176,7 @@ function leerJSONSeguro(file, backupFile, fallback, opciones = {}) {
           Array.isArray(parsedBackup)
         )
       ) {
-        throw new Error('Backup inválido');
+        throw new Error('Backup inv├ílido');
       }
 
       console.log(`Recuperado desde backup: ${backupFile}`);
@@ -319,7 +318,7 @@ function asegurarPerfil(data, id) {
       ultima_hora: 'N/A',
       proximo_post: '16m',
       proximo_post_ts: null,
-      fin_plan: '7 días',
+      fin_plan: '7 d├¡as',
       ultima_accion: 'Creado',
       ultimo_evento: null,
       bump_hoy: 0,
@@ -385,15 +384,18 @@ function tiempoRestantePlan(fechaFin) {
 
   const diff = fin.getTime() - Date.now();
 
-  if (diff <= 0) return '❌ Vencido';
+  if (diff <= 0) return 'Γ¥î Vencido';
 
+  // Ceil evita que un plan reci├⌐n creado de 7 d├¡as aparezca
+  // inmediatamente como 6 d├¡as, 23h, 59m, 59s.
   const totalSegundos = Math.ceil(diff / 1000);
+
   const dias = Math.floor(totalSegundos / 86400);
   const horas = Math.floor((totalSegundos % 86400) / 3600);
   const minutos = Math.floor((totalSegundos % 3600) / 60);
   const segundos = totalSegundos % 60;
 
-  return `${dias} días, ${horas}h ${minutos}m ${segundos}s`;
+  return `${dias} d├¡as, ${horas}h ${minutos}m ${segundos}s`;
 }
 
 function planVencido(perfil) {
@@ -414,7 +416,7 @@ function puedeContarBump(perfil) {
 }
 
 // =========================
-// CONVERTIR DURACIÓN EXACTA
+// CONVERTIR DURACI├ôN EXACTA
 // =========================
 function convertirFinPlan(valor) {
   if (!valor) return '';
@@ -426,6 +428,7 @@ function convertirFinPlan(valor) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
+  // Si ya es una fecha absoluta guardada, se conserva tal cual.
   if (
     /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}(?:\.\d{3})?z?$/.test(texto) ||
     /^\d{4}-\d{2}-\d{2}$/.test(texto)
@@ -433,6 +436,12 @@ function convertirFinPlan(valor) {
     return valor;
   }
 
+  // Ejemplos aceptados:
+  // 7 d├¡as
+  // 2 d├¡as 2 horas
+  // 2 d├¡as 37 minutos
+  // 2 d├¡as 2 horas 37 minutos
+  // 2 d├¡as y 2 horas y 37 minutos
   const patron =
     /^(\d+)\s*dias?(?:\s*(?:y\s*)?(\d+)\s*horas?)?(?:\s*(?:y\s*)?(\d+)\s*minutos?)?$/;
 
@@ -525,8 +534,10 @@ function idsPorChatId(chatId) {
 }
 
 // =========================
-// PROGRAMACIÓN POR HORA
+// PROGRAMACI├ôN POR HORA
 // =========================
+
+// Hora fija de Rep├║blica Dominicana. As├¡ no depende de la hora rara de Railway.
 const ZONA_RD_OFFSET_MS = -4 * 60 * 60 * 1000;
 
 function pad2(n) {
@@ -579,7 +590,7 @@ function parsearHoraSimple(textoHora) {
   if (!m) {
     return {
       ok: false,
-      error: 'Hora inválida. Usa ejemplo: HOY 5:00 AM, MAÑANA 5:00 AM, o 09/05 5:00 AM'
+      error: 'Hora inv├ílida. Usa ejemplo: HOY 5:00 AM, MA├æANA 5:00 AM, o 09/05 5:00 AM'
     };
   }
 
@@ -590,14 +601,14 @@ function parsearHoraSimple(textoHora) {
   if (Number.isNaN(hora) || Number.isNaN(minuto)) {
     return {
       ok: false,
-      error: 'Hora inválida.'
+      error: 'Hora inv├ílida. Usa ejemplo: HOY 5:00 AM, MA├æANA 5:00 AM, o 09/05 5:00 AM'
     };
   }
 
   if (minuto < 0 || minuto > 59) {
     return {
       ok: false,
-      error: 'Minuto inválido. Usa ejemplo: 5:30 AM'
+      error: 'Minuto inv├ílido. Usa ejemplo: 5:30 AM'
     };
   }
 
@@ -605,7 +616,7 @@ function parsearHoraSimple(textoHora) {
     if (hora < 1 || hora > 12) {
       return {
         ok: false,
-        error: 'Hora inválida. Con AM/PM usa 1 a 12.'
+        error: 'Hora inv├ílida. Con AM/PM usa 1 a 12. Ejemplo: 5:00 AM'
       };
     }
 
@@ -615,7 +626,7 @@ function parsearHoraSimple(textoHora) {
     if (hora < 0 || hora > 23) {
       return {
         ok: false,
-        error: 'Hora inválida. Usa formato 24 horas.'
+        error: 'Hora inv├ílida. Usa formato 24 horas, ejemplo: 17:00, o usa AM/PM'
       };
     }
   }
@@ -677,6 +688,8 @@ function calcularHoraProgramada(textoHora) {
       fecha = { ano, mes, dia };
       horaTexto = mFecha[4].trim();
     } else {
+      // Si solo escribes 5:00 AM, se intenta para HOY.
+      // Si esa hora ya pas├│, NO se manda para ma├▒ana: da error.
       fecha = hoy;
       horaTexto = texto;
     }
@@ -691,7 +704,7 @@ function calcularHoraProgramada(textoHora) {
   if (!fechaValidaRD(fecha.ano, fecha.mes, fecha.dia, hora.hora, hora.minuto)) {
     return {
       ok: false,
-      error: 'Fecha inválida. Usa formato DÍA/MES.'
+      error: 'Fecha inv├ílida. Usa formato D├ìA/MES, ejemplo: 09/05 5:00 AM'
     };
   }
 
@@ -700,7 +713,7 @@ function calcularHoraProgramada(textoHora) {
   if (ejecutarEn <= Date.now()) {
     return {
       ok: false,
-      error: 'Esa hora ya pasó en República Dominicana.'
+      error: 'Esa hora ya pas├│ en Rep├║blica Dominicana. Escribe HOY si es hoy, MA├æANA si es ma├▒ana, o pon fecha: 09/05 5:00 AM'
     };
   }
 
@@ -740,19 +753,19 @@ Falta: ${tiempoRestante(Number(item.ejecutarEn))}`;
 }
 
 function resumenProgramacionesTelegram(chatId = null) {
-  return `⏰ PROGRAMACIONES ACTUALES
+  return `ΓÅ░ PROGRAMACIONES ACTUALES
 
-⏸ Pausar todas:
+ΓÅ╕ Pausar todas:
 ${textoProgramacionActual('PAUSADA', chatId)}
 
-▶️ Reanudar todas:
+Γû╢∩╕Å Reanudar todas:
 ${textoProgramacionActual('ACTIVA', chatId)}`;
 }
 
 function mensajeProgramarTelegram(accion, chatId = null) {
-  const titulo = accion === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+  const titulo = accion === 'PAUSADA' ? 'ΓÅ╕ PAUSAR TODAS' : 'Γû╢∩╕Å REANUDAR TODAS';
 
-  return `⏰ PROGRAMACIÓN
+  return `ΓÅ░ PROGRAMACI├ôN
 
 ${titulo}
 
@@ -763,13 +776,13 @@ Escribe fecha y hora.
 
 Ejemplos:
 HOY 5:00 AM
-MAÑANA 5:00 AM
+MA├æANA 5:00 AM
 09/05 5:00 AM
 
 Formato fecha:
-DÍA/MES HORA
+D├ìA/MES HORA
 
-Para quitar esa programación, escribe:
+Para quitar esa programaci├│n, escribe:
 CANCELAR`;
 }
 
@@ -831,7 +844,7 @@ function htmlProgramacionesPendientes() {
   if (pendientes.length === 0) {
     return `
       <div class="programacionBox">
-        <strong>⏰ Programaciones pendientes</strong>
+        <strong>ΓÅ░ Programaciones pendientes</strong>
         <div class="small">No hay programaciones guardadas ahora mismo.</div>
       </div>
     `;
@@ -839,8 +852,8 @@ function htmlProgramacionesPendientes() {
 
   const items = pendientes.map(item => {
     const accionTxt = item.accion === 'PAUSADA'
-      ? '⏸ PAUSAR TODAS'
-      : '▶️ REANUDAR TODAS';
+      ? 'ΓÅ╕ PAUSAR TODAS'
+      : 'Γû╢∩╕Å REANUDAR TODAS';
 
     const fecha = formatearFechaRD(Number(item.ejecutarEn));
     const grupo = item.chatId ? `<div>Grupo Chat ID: ${escaparHtml(item.chatId)}</div>` : `<div>Grupo: GLOBAL ADMIN</div>`;
@@ -858,7 +871,7 @@ function htmlProgramacionesPendientes() {
 
   return `
     <div class="programacionBox">
-      <strong>⏰ Programaciones pendientes</strong>
+      <strong>ΓÅ░ Programaciones pendientes</strong>
       ${items}
     </div>
   `;
@@ -871,32 +884,32 @@ function tecladoTelegram(id) {
   return {
     inline_keyboard: [
       [
-        { text: '⏸ Pausar', callback_data: `pausar_${id}` },
-        { text: '▶️ Reanudar', callback_data: `reanudar_${id}` }
+        { text: 'ΓÅ╕ Pausar', callback_data: `pausar_${id}` },
+        { text: 'Γû╢∩╕Å Reanudar', callback_data: `reanudar_${id}` }
       ],
       [
-        { text: '⏸ Pausar todas', callback_data: 'pausar_todas' },
-        { text: '▶️ Reanudar todas', callback_data: 'reanudar_todas' }
+        { text: 'ΓÅ╕ Pausar todas', callback_data: 'pausar_todas' },
+        { text: 'Γû╢∩╕Å Reanudar todas', callback_data: 'reanudar_todas' }
       ],
       [
-        { text: '⏰ Programar pausa', callback_data: `progpausa_${id}` },
-        { text: '⏰ Programar reanudar', callback_data: `progreanudar_${id}` }
+        { text: 'ΓÅ░ Programar pausa', callback_data: `progpausa_${id}` },
+        { text: 'ΓÅ░ Programar reanudar', callback_data: `progreanudar_${id}` }
       ],
       [
-        { text: '🕒 Último bump', callback_data: `ultima_${id}` }
+        { text: '≡ƒòÆ ├Ültimo bump', callback_data: `ultima_${id}` }
       ],
       [
-        { text: '🔄 Reiniciar bot', callback_data: `reiniciar_${id}` }
+        { text: '≡ƒöä Reiniciar bot', callback_data: `reiniciar_${id}` }
       ],
       [
-        { text: '📞 Contactar', url: SUPPORT_URL },
-        { text: '📜 Ver reglas', callback_data: 'reglas' }
+        { text: '≡ƒô₧ Contactar', url: SUPPORT_URL },
+        { text: '≡ƒô£ Ver reglas', callback_data: 'reglas' }
       ],
       [
-        { text: '📸 Ver una foto', callback_data: `foto_${id}` }
+        { text: '≡ƒô╕ Ver una foto', callback_data: `foto_${id}` }
       ],
       [
-        { text: '🗂 Ver álbum completo', callback_data: `album_${id}` }
+        { text: '≡ƒùé Ver ├ílbum completo', callback_data: `album_${id}` }
       ]
     ]
   };
@@ -1003,7 +1016,7 @@ async function enviarBufferComoFoto(buffer, caption, id, filename = 'imagen.jpg'
   const destino = perfil?.chat_id || CHAT_ID;
 
   if (!FormData) {
-    await enviarTexto('⚠️ Falta form-data. Corre: npm install form-data', destino, id);
+    await enviarTexto('ΓÜá∩╕Å Falta form-data. Corre: npm install form-data', destino, id);
     return false;
   }
 
@@ -1110,22 +1123,26 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
+  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
+  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
+  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
+  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
   data[id].ultima_alerta = '';
   data[id].ultima_alerta_tipo = '';
@@ -1232,11 +1249,11 @@ async function avisarAlertaGeneral(id, tipo, motivo) {
     state.ultima_alerta_general_ts = ahora;
     guardarState(state);
 
-    await enviarTexto(`🚨 ALERTA GENERAL
+    await enviarTexto(`≡ƒÜ¿ ALERTA GENERAL
 
-Hay ${perfilesUnicos} perfiles con alertas en los últimos 30 minutos.
+Hay ${perfilesUnicos} perfiles con alertas en los ├║ltimos 30 minutos.
 
-Último perfil: ${id}
+├Ültimo perfil: ${id}
 Tipo: ${tipo}
 Motivo: ${motivo}
 
@@ -1262,7 +1279,7 @@ async function registrarAlertaPerfil(id, tipo, motivo, detalle, fotoAlerta) {
   perfil.ultima_alerta_hora = hora;
   perfil.ultima_alerta_foto = fotoAlerta || '';
   perfil.ultima_hora = hora;
-  perfil.ultima_accion = `🚨 ALERTA: ${limitarTexto(motivo || tipo || 'Problema detectado', 200)}`;
+  perfil.ultima_accion = `≡ƒÜ¿ ALERTA: ${limitarTexto(motivo || tipo || 'Problema detectado', 200)}`;
   perfil.ultimo_evento = {
     tipo: 'alerta',
     alerta_tipo: tipo || 'alerta',
@@ -1287,7 +1304,7 @@ async function registrarAlertaPerfil(id, tipo, motivo, detalle, fotoAlerta) {
   const ok = guardarData(data);
   if (!ok) return false;
 
-  const caption = `🚨 MODO GUARDIA ACTIVADO
+  const caption = `≡ƒÜ¿ MODO GUARDIA ACTIVADO
 
 Perfil: ${perfil.nombre || id}
 ID: ${id}
@@ -1305,8 +1322,8 @@ ${detalle || 'N/A'}
 Hora:
 ${hora}
 
-Acción:
-El perfil fue pausado automáticamente para revisión.`;
+Acci├│n:
+El perfil fue pausado autom├íticamente para revisi├│n.`;
 
   if (fotoAlerta) {
     await enviarFotoFlexible(fotoAlerta, caption, id);
@@ -1329,21 +1346,21 @@ async function enviarEstadoPerfil(id) {
   if (!perfil) return;
 
   const alerta = perfil.ultima_alerta
-    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
+    ? `\n≡ƒÜ¿ ├Ültima alerta: ${perfil.ultima_alerta}\n≡ƒòÆ Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
     : '';
 
-  const caption = `🔥 jean calos BOT 🔥
+  const caption = `≡ƒöÑ jean calos BOT ≡ƒöÑ
 
 Perfil: ${perfil.nombre}
-📞 Teléfono: ${perfil.telefono}
-🆔 Código: ${perfil.codigo}
-📍 Ubicación: ${perfil.ubicacion}
-🟢 Estado: ${perfil.estado}
-🕒 Hora: ${perfil.ultima_hora}
-⏱ Próximo bump: ${tiempoProximoPost(perfil)}
-📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
-📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
+≡ƒô₧ Tel├⌐fono: ${perfil.telefono}
+≡ƒåö C├│digo: ${perfil.codigo}
+≡ƒôì Ubicaci├│n: ${perfil.ubicacion}
+≡ƒƒó Estado: ${perfil.estado}
+≡ƒòÆ Hora: ${perfil.ultima_hora}
+ΓÅ▒ Pr├│ximo bump: ${tiempoProximoPost(perfil)}
+≡ƒôà Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
+≡ƒôè Bump hoy: ${perfil.bump_hoy || 0}
+≡ƒôê Bump total: ${perfil.bump_total || 0}${alerta}`;
 
   await enviarFoto(perfil.foto_modelo, caption, id);
 }
@@ -1356,24 +1373,24 @@ async function enviarUltimaActualizacion(id) {
   const textoLimpio = limpiarTextoTelegram(perfil.texto || 'N/A');
 
   const alerta = perfil.ultima_alerta
-    ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
+    ? `\n≡ƒÜ¿ ├Ültima alerta: ${perfil.ultima_alerta}\n≡ƒòÆ Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
     : '';
 
-  const caption = `🔥 ÚLTIMO BUMP
-🐺 Los lobos del sistema te desean mucho éxito
-💰 Que esta publicación te genere mucho dinero
-🚀 Y que la próxima te deje aún más ganancias
-📄 Información:
-📞 Número: ${perfil.telefono}
-🆔 Código: ${perfil.codigo}
-📍 Ubicación: ${perfil.ubicacion}
-📝 Texto: ${textoLimpio || 'N/A'}
-🟢 Estado: ${perfil.estado}
-🕒 Hora del bump: ${perfil.ultima_hora}
-⏱ Tiempo para próximo bump: ${tiempoProximoPost(perfil)}
-📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
-📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
+  const caption = `≡ƒöÑ ├ÜLTIMO BUMP
+≡ƒÉ║ Los lobos del sistema te desean mucho ├⌐xito
+≡ƒÆ░ Que esta publicaci├│n te genere mucho dinero
+≡ƒÜÇ Y que la pr├│xima te deje a├║n m├ís ganancias
+≡ƒôä Informaci├│n:
+≡ƒô₧ N├║mero: ${perfil.telefono}
+≡ƒåö C├│digo: ${perfil.codigo}
+≡ƒôì Ubicaci├│n: ${perfil.ubicacion}
+≡ƒô¥ Texto: ${textoLimpio || 'N/A'}
+≡ƒƒó Estado: ${perfil.estado}
+≡ƒòÆ Hora del bump: ${perfil.ultima_hora}
+ΓÅ▒ Tiempo para pr├│ximo bump: ${tiempoProximoPost(perfil)}
+≡ƒôà Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
+≡ƒôè Bump hoy: ${perfil.bump_hoy || 0}
+≡ƒôê Bump total: ${perfil.bump_total || 0}${alerta}`;
 
   if (perfil.foto_bump) {
     const ok = await enviarFotoFlexible(perfil.foto_bump, caption, id);
@@ -1388,10 +1405,10 @@ async function enviarFotoPagina(id) {
   const perfil = data[id];
   if (!perfil) return;
 
-  const caption = `📸 Foto guardada
+  const caption = `≡ƒô╕ Foto guardada
 
-📞 Número: ${perfil.telefono}
-🆔 Código: ${perfil.codigo}`;
+≡ƒô₧ N├║mero: ${perfil.telefono}
+≡ƒåö C├│digo: ${perfil.codigo}`;
 
   await enviarFoto(perfil.foto_pagina, caption, id);
 }
@@ -1404,14 +1421,14 @@ async function enviarUltimasFotos(id, cantidad) {
   const fotos = Array.isArray(perfil.historial_fotos) ? perfil.historial_fotos : [];
 
   if (fotos.length === 0) {
-    await enviarTexto(`⚠️ No hay fotos guardadas para el perfil ${id}`);
+    await enviarTexto(`ΓÜá∩╕Å No hay fotos guardadas para el perfil ${id}`);
     return;
   }
 
   const lista = fotos.slice(0, cantidad);
 
   for (let i = 0; i < lista.length; i++) {
-    await enviarFoto(lista[i], `📂 Foto ${i + 1} de ${lista.length}`, id);
+    await enviarFoto(lista[i], `≡ƒôé Foto ${i + 1} de ${lista.length}`, id);
   }
 }
 
@@ -1424,21 +1441,21 @@ async function enviarAlbumCompleto(id) {
   const fotos = Array.isArray(perfil.historial_fotos) ? perfil.historial_fotos : [];
 
   if (fotos.length === 0) {
-    await enviarTexto(`⚠️ No hay fotos guardadas para el perfil ${id}`, destino, id);
+    await enviarTexto(`ΓÜá∩╕Å No hay fotos guardadas para el perfil ${id}`, destino, id);
     return;
   }
 
   const lista = fotos.filter(Boolean).slice(0, 10);
 
   if (lista.length === 1) {
-    await enviarFoto(lista[0], `🗂 Álbum completo\nFoto 1 de 1`, id);
+    await enviarFoto(lista[0], `≡ƒùé ├ülbum completo\nFoto 1 de 1`, id);
     return;
   }
 
   const media = lista.map((foto, index) => ({
     type: 'photo',
     media: foto,
-    caption: index === 0 ? `🗂 Álbum completo\n${lista.length} fotos guardadas` : undefined
+    caption: index === 0 ? `≡ƒùé ├ülbum completo\n${lista.length} fotos guardadas` : undefined
   }));
 
   const res = await apiTelegram('sendMediaGroup', {
@@ -1451,7 +1468,7 @@ async function enviarAlbumCompleto(id) {
     return;
   }
 
-  await enviarTexto('🗂 Álbum completo enviado.', destino, id);
+  await enviarTexto('≡ƒùé ├ülbum completo enviado.', destino, id);
 }
 
 async function enviarReglas(chatId = CHAT_ID) {
@@ -1481,7 +1498,7 @@ app.get('/api/licencia/:id', (req, res) => {
       return res.json({
         ok: false,
         estado: 'TOKEN_INVALIDO',
-        motivo: 'Token inválido'
+        motivo: 'Token inv├ílido'
       });
     }
 
@@ -1532,13 +1549,13 @@ app.get('/api/estado/:id', (req, res) => {
     if (perfil.estado === 'PAUSADA') {
       return res.json({
         estado: 'PAUSADA',
-        motivo: perfil.ultima_alerta ? `Pausada por alerta: ${perfil.ultima_alerta}` : 'Pausada por orden explícita del panel'
+        motivo: perfil.ultima_alerta ? `Pausada por alerta: ${perfil.ultima_alerta}` : 'Pausada por orden expl├¡cita del panel'
       });
     }
 
     return res.json({
       estado: 'ACTIVA',
-      motivo: 'Modo seguro: solo se pausa por orden explícita'
+      motivo: 'Modo seguro: solo se pausa por orden expl├¡cita'
     });
   } catch (error) {
     console.log('Error en /api/estado/:id =>', error?.message || error);
@@ -1546,110 +1563,6 @@ app.get('/api/estado/:id', (req, res) => {
     return res.json({
       estado: 'ERROR',
       motivo: 'Fallo del panel/lectura'
-    });
-  }
-});
-
-// =========================
-// CQ BOTON MANUAL ON/OFF V1
-// NUEVA RUTA INDEPENDIENTE
-// =========================
-app.post('/registrar-estado-manual', async (req, res) => {
-  try {
-    const id = String(req.body?.id || '').trim();
-    const estado = String(req.body?.estado || '')
-      .trim()
-      .toUpperCase();
-
-    if (!id || !['ON', 'OFF'].includes(estado)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'ID o estado manual inválido'
-      });
-    }
-
-    const data = leerData();
-
-    if (!Object.prototype.hasOwnProperty.call(data, id)) {
-      return res.status(404).json({
-        ok: false,
-        error: 'Perfil no encontrado'
-      });
-    }
-
-    const perfil = data[id];
-
-    // No modificar credenciales ni generar tokens.
-    // Solo perfiles con token pueden reportar
-    // directamente desde Tampermonkey.
-    if (
-      !perfil.cliente_token ||
-      !tokenValidoParaPerfil(req, perfil)
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: 'Token inválido o no configurado'
-      });
-    }
-
-    // No permitir encendido de perfiles bloqueados.
-    if (
-      estado === 'ON' &&
-      (perfil.estado !== 'ACTIVA' || planVencido(perfil))
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: 'Perfil pausado o plan vencido'
-      });
-    }
-
-    // El estado manual es independiente de
-    // ACTIVA / PAUSADA y de la licencia.
-    const hora = horaActual();
-
-    perfil.estado_manual = estado;
-    perfil.estado_manual_hora = hora;
-
-    const guardado = guardarData(data);
-
-    if (!guardado) {
-      return res.status(500).json({
-        ok: false,
-        error: 'No se pudo guardar estado manual'
-      });
-    }
-
-    let telegramEnviado = false;
-    const destino = perfil.chat_id || CHAT_ID;
-
-    if (destino && BOT_TOKEN) {
-      const mensaje = `${estado === 'ON' ? '🟢' : '🔴'} MOTOR MANUAL ${estado}
-
-Perfil: ${perfil.nombre || id}
-ID: ${id}
-Estado manual: ${estado}
-Hora: ${hora}`;
-
-      const respuesta = await enviarTexto(mensaje, destino);
-      telegramEnviado = !!respuesta?.ok;
-    }
-
-    return res.json({
-      ok: true,
-      id,
-      estado_manual: estado,
-      hora,
-      telegram_enviado: telegramEnviado
-    });
-  } catch (error) {
-    console.error(
-      'Error en /registrar-estado-manual:',
-      error?.message || error
-    );
-
-    return res.status(500).json({
-      ok: false,
-      error: 'Error registrando estado manual'
     });
   }
 });
@@ -1682,7 +1595,7 @@ app.post('/registrar-alerta', async (req, res) => {
       return res.status(403).json({
         ok: false,
         estado: 'TOKEN_INVALIDO',
-        error: 'Token inválido para registrar alerta'
+        error: 'Token inv├ílido para registrar alerta'
       });
     }
 
@@ -1755,7 +1668,7 @@ app.post('/registrar-evento', async (req, res) => {
     return res.status(403).json({
       ok: false,
       estado: 'TOKEN_INVALIDO',
-      error: 'Token inválido para registrar evento'
+      error: 'Token inv├ílido para registrar evento'
     });
   }
 
@@ -1795,7 +1708,11 @@ app.post('/registrar-evento', async (req, res) => {
     }
   }
 
-  // El post NO renueva ni reinicia el plan.
+  // IMPORTANTE:
+  // EL POST NO RENUEVA NI REINICIA EL PLAN.
+  // fin_plan solamente se establece o renueva desde /guardar-perfil.
+  // As├¡ el vencimiento queda fijo y sigue bajando hasta llegar a cero.
+
   perfil.ultima_hora = ultima_hora || horaActual();
   perfil.ultima_accion = ultima_accion || tipoNormal;
   perfil.ultimo_evento = { tipo: tipoNormal, hora: perfil.ultima_hora };
@@ -1812,7 +1729,7 @@ app.post('/registrar-evento', async (req, res) => {
       perfil.bump_fecha = fechaHoy();
       perfil.proximo_post_ts = Date.now() + Number(minutos_siguientes) * 60 * 1000;
       perfil.proximo_post = tiempoProximoPost(perfil);
-      perfil.ultima_accion = ultima_accion || 'Publicado con éxito';
+      perfil.ultima_accion = ultima_accion || 'Publicado con ├⌐xito';
     } else {
       perfil.ultima_accion = `Publicado ignorado: perfil ${perfil.estado}${planVencido(perfil) ? ' / vencido' : ''}`;
       perfil.ultimo_evento = {
@@ -1852,7 +1769,7 @@ async function procesarCallback(q) {
   if (data === 'pausar_todas') {
     const total = cambiarEstadoTodos('PAUSADA', chatId);
     await responderCallback(callbackId, 'Grupo pausado');
-    await enviarTexto(`⏸ Se pausaron ${total} perfiles de este grupo. Cola cancelada.`, chatId);
+    await enviarTexto(`ΓÅ╕ Se pausaron ${total} perfiles de este grupo. Cola cancelada.`, chatId);
     return;
   }
 
@@ -1860,7 +1777,7 @@ async function procesarCallback(q) {
     const total = idsPorChatId(chatId).length;
     reanudarTodasEnCola(chatId);
     await responderCallback(callbackId, 'Reanudando grupo');
-    await enviarTexto(`▶️ Reanudando ${total} perfiles de este grupo en cola cada 45 segundos.`, chatId);
+    await enviarTexto(`Γû╢∩╕Å Reanudando ${total} perfiles de este grupo en cola cada 45 segundos.`, chatId);
     return;
   }
 
@@ -1873,7 +1790,7 @@ async function procesarCallback(q) {
   const [accion, id] = data.split('_');
 
   if (!id) {
-    await responderCallback(callbackId, 'Acción inválida');
+    await responderCallback(callbackId, 'Acci├│n inv├ílida');
     return;
   }
 
@@ -1935,7 +1852,7 @@ async function procesarCallback(q) {
   }
 
   if (accion === 'ultima') {
-    await responderCallback(callbackId, 'Último bump');
+    await responderCallback(callbackId, '├Ültimo bump');
     await enviarUltimaActualizacion(id);
     return;
   }
@@ -1947,7 +1864,7 @@ async function procesarCallback(q) {
   }
 
   if (accion === 'album') {
-    await responderCallback(callbackId, 'Enviando álbum completo...');
+    await responderCallback(callbackId, 'Enviando ├ílbum completo...');
     await enviarAlbumCompleto(id);
     return;
   }
@@ -1956,7 +1873,7 @@ async function procesarCallback(q) {
     const ok = cambiarEstadoPerfil(id, 'ACTIVA');
     await responderCallback(callbackId, ok ? 'Bot reiniciado' : 'No encontrado');
     if (ok) {
-      await enviarTexto(`🔄 Perfil ${id} reiniciado y puesto en ACTIVA.`, chatId);
+      await enviarTexto(`≡ƒöä Perfil ${id} reiniciado y puesto en ACTIVA.`, chatId);
       await enviarEstadoPerfil(id);
     }
     return;
@@ -2020,10 +1937,10 @@ async function revisarTelegram() {
               nuevoState.offset = u.update_id;
               guardarStateTelegramSeguro(nuevoState);
 
-              const accionTexto = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+              const accionTexto = accionPendiente === 'PAUSADA' ? 'ΓÅ╕ PAUSAR TODAS' : 'Γû╢∩╕Å REANUDAR TODAS';
 
               await enviarTexto(
-                `✅ PROGRAMACIÓN QUITADA
+                `Γ£à PROGRAMACI├ôN QUITADA
 
 ${accionTexto}
 
@@ -2045,7 +1962,7 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
 
             if (!resultado.ok) {
               await enviarTexto(
-                `⚠️ ${resultado.error}
+                `ΓÜá∩╕Å ${resultado.error}
 
 ${mensajeProgramarTelegram(accionPendiente, chatProgramacion)}`,
                 chatId
@@ -2053,25 +1970,24 @@ ${mensajeProgramarTelegram(accionPendiente, chatProgramacion)}`,
               continue;
             }
 
-            const palabra = accionPendiente === 'PAUSADA' ? '⏸ PAUSAR TODAS' : '▶️ REANUDAR TODAS';
+            const palabra = accionPendiente === 'PAUSADA' ? 'ΓÅ╕ PAUSAR TODAS' : 'Γû╢∩╕Å REANUDAR TODAS';
 
             await enviarTexto(
-              `✅ PROGRAMACIÓN GUARDADA
+              `Γ£à PROGRAMACI├ôN GUARDADA
 
 ${palabra}
 
 Hora:
 ${textoOriginal}
 
-Se ejecutará:
+Se ejecutar├í:
 ${resultado.fecha}
 
 ${resumenProgramacionesTelegram(chatProgramacion)}`,
-                chatId
-              );
+              chatId
+            );
 
-              continue;
-            }
+            continue;
           }
 
           if (/^P\d+$/.test(texto)) {
@@ -2093,7 +2009,7 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
             state.esperandoFoto = id;
             guardarStateTelegramSeguro(state);
 
-            await enviarTexto(`📸 Ahora envía la foto para el perfil ${id}`, chatId);
+            await enviarTexto(`≡ƒô╕ Ahora env├¡a la foto para el perfil ${id}`, chatId);
           }
         }
 
@@ -2101,7 +2017,7 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
           const id = state.esperandoFoto;
 
           if (!id) {
-            await enviarTexto('⚠️ Primero escribe P + número. Ejemplo: P15', chatId);
+            await enviarTexto('ΓÜá∩╕Å Primero escribe P + n├║mero. Ejemplo: P15', chatId);
             continue;
           }
 
@@ -2142,7 +2058,7 @@ ${resumenProgramacionesTelegram(chatProgramacion)}`,
           state.esperandoFoto = null;
           guardarStateTelegramSeguro(state);
 
-          await enviarTexto(`✅ Foto guardada para perfil ${id}`, chatId);
+          await enviarTexto(`Γ£à Foto guardada para perfil ${id}`, chatId);
           await enviarFotoPagina(id);
         }
       }
@@ -2173,7 +2089,7 @@ async function ejecutarProgramaciones() {
       cambioViejo = true;
       cambiarEstadoPerfil(item.id, item.accion);
       await enviarTexto(
-        `⏰ Programación ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
+        `ΓÅ░ Programaci├│n ejecutada\nPerfil: ${item.id}\nNuevo estado: ${item.accion}`
       );
       await enviarEstadoPerfil(item.id);
     } else {
@@ -2201,9 +2117,9 @@ async function ejecutarProgramaciones() {
         const total = cambiarEstadoTodos('PAUSADA', item.chatId || null);
 
         await enviarTexto(
-          `⏰ Programación ejecutada
+          `ΓÅ░ Programaci├│n ejecutada
 
-Acción: PAUSAR TODAS
+Acci├│n: PAUSAR TODAS
 Perfiles afectados: ${total}
 Hora programada: ${item.horaTexto || 'N/A'}`,
           chatDestino
@@ -2213,9 +2129,9 @@ Hora programada: ${item.horaTexto || 'N/A'}`,
         reanudarTodasEnCola(item.chatId || null);
 
         await enviarTexto(
-          `⏰ Programación ejecutada
+          `ΓÅ░ Programaci├│n ejecutada
 
-Acción: REANUDAR TODAS
+Acci├│n: REANUDAR TODAS
 Perfiles afectados: ${total}
 Hora programada: ${item.horaTexto || 'N/A'}
 
@@ -2234,8 +2150,6 @@ Reanudando en cola cada 45 segundos.`,
   }
 }
 
-// =========================
-// PANEL MULTICLIENTE
 // =========================
 const cq = require('./cq_multicliente')(app, {
   leerData,
@@ -2286,14 +2200,14 @@ app.get('/', (req, res) => {
     </style>
   </head>
   <body>
-    <h1><span style="font-size:1.65em">🐺</span> PANEL PRO <span style="font-size:1.65em">🐺</span></h1>
+    <h1><span style="font-size:1.65em">≡ƒÉ║</span> PANEL PRO <span style="font-size:1.65em">≡ƒÉ║</span></h1>
     <div style="margin-bottom:16px;">
-      <button class="danger" onclick="accionGlobal('pausar_todas')">⏸ Pausar todas</button>
-      <button class="success" onclick="accionGlobal('reanudar_todas')">▶️ Reanudar todas</button>
-      <a class="btn warning" href="/nuevo">➕ Nuevo perfil</a>
+      <button class="danger" onclick="accionGlobal('pausar_todas')">ΓÅ╕ Pausar todas</button>
+      <button class="success" onclick="accionGlobal('reanudar_todas')">Γû╢∩╕Å Reanudar todas</button>
+      <a class="btn warning" href="/nuevo">Γ₧ò Nuevo perfil</a>
       <!-- CQ_BOTON_ADMIN_PRINCIPAL_V1 -->
       ${req.cq && req.cq.admin
-        ? '<a class="btn" style="background:#7334e8;color:#fff" href="/admin">⚙️ Administración de clientes</a>'
+        ? '<a class="btn" style="background:#7334e8;color:#fff" href="/admin">ΓÜÖ∩╕Å Administraci├│n de clientes</a>'
         : ''}
     </div>
 
@@ -2308,7 +2222,7 @@ app.get('/', (req, res) => {
     const alertaHtml = p.ultima_alerta
       ? `
         <div class="alertaBox">
-          <div><strong>🚨 Última alerta</strong></div>
+          <div><strong>≡ƒÜ¿ ├Ültima alerta</strong></div>
           <div>Tipo: ${p.ultima_alerta_tipo || 'N/A'}</div>
           <div>Motivo: ${p.ultima_alerta || 'N/A'}</div>
           <div>Hora: ${p.ultima_alerta_hora || 'N/A'}</div>
@@ -2319,35 +2233,34 @@ app.get('/', (req, res) => {
     html += `
       <div class="card">
         <div class="row"><strong>${p.nombre}</strong></div>
-        <div class="row">🆔 Perfil: ${id}</div>
-        <div class="row">💬 Chat ID: ${p.chat_id || 'N/A'}</div>
-        <div class="row">🔑 Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
-        <div class="row">📞 ${p.telefono || 'N/A'}</div>
-        <div class="row">🆔 Código: ${p.codigo || 'N/A'}</div>
-        <div class="row">📍 ${p.ubicacion || 'N/A'}</div>
-        <div class="row estado">🟢 ${p.estado}</div>
-        <div class="row">🔘 Motor manual: ${p.estado_manual || 'SIN REPORTE'}</div>
-        <div class="row">🕒 ${p.ultima_hora}</div>
-        <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
-        <div class="row">📅 ${tiempoRestantePlan(p.fin_plan)}</div>
-        <div class="row">📊 Bump hoy: ${p.bump_hoy || 0}</div>
-        <div class="row">📈 Bump total: ${p.bump_total || 0}</div>
-        <div class="row">🖼 Historial fotos: ${totalFotos}</div>
-        <div class="row small">Última acción: ${p.ultima_accion || 'N/A'}</div>
+        <div class="row">≡ƒåö Perfil: ${id}</div>
+        <div class="row">≡ƒÆ¼ Chat ID: ${p.chat_id || 'N/A'}</div>
+        <div class="row">≡ƒöæ Cliente token: ${p.cliente_token || 'SIN CLAVE'}</div>
+        <div class="row">≡ƒô₧ ${p.telefono || 'N/A'}</div>
+        <div class="row">≡ƒåö C├│digo: ${p.codigo || 'N/A'}</div>
+        <div class="row">≡ƒôì ${p.ubicacion || 'N/A'}</div>
+        <div class="row estado">≡ƒƒó ${p.estado}</div>
+        <div class="row">≡ƒòÆ ${p.ultima_hora}</div>
+        <div class="row">ΓÅ▒ Pr├│ximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
+        <div class="row">≡ƒôà ${tiempoRestantePlan(p.fin_plan)}</div>
+        <div class="row">≡ƒôè Bump hoy: ${p.bump_hoy || 0}</div>
+        <div class="row">≡ƒôê Bump total: ${p.bump_total || 0}</div>
+        <div class="row">≡ƒû╝ Historial fotos: ${totalFotos}</div>
+        <div class="row small">├Ültima acci├│n: ${p.ultima_accion || 'N/A'}</div>
 
         ${alertaHtml}
 
-        <button class="danger" onclick="accionPerfil('${id}','pausar')">⏸ Pausar</button>
-        <button class="success" onclick="accionPerfil('${id}','reanudar')">▶️ Reanudar</button>
-        <button class="warning" onclick="accionPerfil('${id}','resetacceso')">🔐 Resetear acceso</button>
-        <button class="info" onclick="accionPerfil('${id}','limpiaralerta')">✅ Limpiar alerta</button>
-        <button class="muted" onclick="accionPerfil('${id}','progpausa')">⏰ Programar pausa</button>
-        <button class="muted" onclick="accionPerfil('${id}','progreanudar')">⏰ Programar reanudar</button>
-        <button class="info" onclick="accionPerfil('${id}','ultima')">🕒 Último bump</button>
-        <button class="info" onclick="accionPerfil('${id}','foto')">📸 Ver foto</button>
-        <button class="muted" onclick="accionPerfil('${id}','reiniciar')">🔄 Reiniciar bot</button>
-        <a class="btn warning" href="/editar/${id}">✏️ Editar</a>
-        <button class="danger" onclick="accionPerfil('${id}','borrarperfil')">🗑️ Borrar perfil</button>
+        <button class="danger" onclick="accionPerfil('${id}','pausar')">ΓÅ╕ Pausar</button>
+        <button class="success" onclick="accionPerfil('${id}','reanudar')">Γû╢∩╕Å Reanudar</button>
+        <button class="warning" onclick="accionPerfil('${id}','resetacceso')">≡ƒöÉ Resetear acceso</button>
+        <button class="info" onclick="accionPerfil('${id}','limpiaralerta')">Γ£à Limpiar alerta</button>
+        <button class="muted" onclick="accionPerfil('${id}','progpausa')">ΓÅ░ Programar pausa</button>
+        <button class="muted" onclick="accionPerfil('${id}','progreanudar')">ΓÅ░ Programar reanudar</button>
+        <button class="info" onclick="accionPerfil('${id}','ultima')">≡ƒòÆ ├Ültimo bump</button>
+        <button class="info" onclick="accionPerfil('${id}','foto')">≡ƒô╕ Ver foto</button>
+        <button class="muted" onclick="accionPerfil('${id}','reiniciar')">≡ƒöä Reiniciar bot</button>
+        <a class="btn warning" href="/editar/${id}">Γ£Å∩╕Å Editar</a>
+        <button class="danger" onclick="accionPerfil('${id}','borrarperfil')">≡ƒùæ∩╕Å Borrar perfil</button>
       </div>
     `;
   }
@@ -2363,25 +2276,25 @@ app.get('/', (req, res) => {
         let hora = '';
 
         if (accion === 'resetacceso') {
-          const ok = confirm('¿Seguro que quieres resetear este perfil? Se borrarán fotos, datos viejos, contadores, alertas y la clave vieja dejará de funcionar.');
+          const ok = confirm('┬┐Seguro que quieres resetear este perfil? Se borrar├ín fotos, datos viejos, contadores, alertas y la clave vieja dejar├í de funcionar.');
           if (!ok) return;
         }
 
         if (accion === 'borrarperfil') {
-          const ok = confirm('¿Seguro que quieres BORRAR este perfil completo? Esta acción no se puede deshacer.');
+          const ok = confirm('┬┐Seguro que quieres BORRAR este perfil completo? Esta acci├│n no se puede deshacer.');
           if (!ok) return;
 
-          const ok2 = confirm('Última confirmación: se borrará el perfil, fotos, datos, token y programaciones pendientes.');
+          const ok2 = confirm('├Ültima confirmaci├│n: se borrar├í el perfil, fotos, datos, token y programaciones pendientes.');
           if (!ok2) return;
         }
 
         if (accion === 'progpausa') {
-          hora = prompt('Escribe fecha y hora para PAUSAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 5:00 AM / MAÑANA 5:00 AM / 09/05 5:00 AM');
+          hora = prompt('Escribe fecha y hora para PAUSAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 5:00 AM / MA├æANA 5:00 AM / 09/05 5:00 AM');
           if (!hora) return;
         }
 
         if (accion === 'progreanudar') {
-          hora = prompt('Escribe fecha y hora para REANUDAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 8:00 AM / MAÑANA 8:00 AM / 09/05 8:00 AM');
+          hora = prompt('Escribe fecha y hora para REANUDAR TODAS DEL GRUPO DE ESTE PERFIL. Ejemplos: HOY 8:00 AM / MA├æANA 8:00 AM / 09/05 8:00 AM');
           if (!hora) return;
         }
 
@@ -2433,7 +2346,7 @@ app.get('/nuevo', (req, res) => {
     </style>
   </head>
   <body>
-    <h1>➕ Nuevo perfil</h1>
+    <h1>Γ₧ò Nuevo perfil</h1>
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
         <label>ID del perfil</label>
@@ -2448,13 +2361,13 @@ app.get('/nuevo', (req, res) => {
         <label>Cliente token / Clave de acceso</label>
         <input name="cliente_token" />
 
-        <label>Teléfono</label>
+        <label>Tel├⌐fono</label>
         <input name="telefono" />
 
-        <label>Código</label>
+        <label>C├│digo</label>
         <input name="codigo" />
 
-        <label>Ubicación</label>
+        <label>Ubicaci├│n</label>
         <input name="ubicacion" />
 
         <label>Texto</label>
@@ -2469,14 +2382,14 @@ app.get('/nuevo', (req, res) => {
         <label>Foto modelo (URL o file_id)</label>
         <input name="foto_modelo" />
 
-        <label>Foto página (URL o file_id)</label>
+        <label>Foto p├ígina (URL o file_id)</label>
         <input name="foto_pagina" />
 
-        <label>Próximo post</label>
+        <label>Pr├│ximo post</label>
         <input name="proximo_post" value="16m" />
 
         <label>Fin de plan</label>
-        <input name="fin_plan" value="7 días" />
+        <input name="fin_plan" value="7 d├¡as" />
 
         <button class="success" type="submit">Guardar perfil</button>
         <a class="muted" href="/">Volver</a>
@@ -2520,7 +2433,7 @@ app.get('/editar/:id', (req, res) => {
     </style>
   </head>
   <body>
-    <h1>✏️ Editar perfil ${id}</h1>
+    <h1>Γ£Å∩╕Å Editar perfil ${id}</h1>
     <div class="form-box">
       <form method="POST" action="/guardar-perfil">
         <input type="hidden" name="id" value="${id}" />
@@ -2534,13 +2447,13 @@ app.get('/editar/:id', (req, res) => {
         <label>Cliente token / Clave de acceso</label>
         <input name="cliente_token" value="${p.cliente_token || ''}" />
 
-        <label>Teléfono</label>
+        <label>Tel├⌐fono</label>
         <input name="telefono" value="${p.telefono || ''}" />
 
-        <label>Código</label>
+        <label>C├│digo</label>
         <input name="codigo" value="${p.codigo || ''}" />
 
-        <label>Ubicación</label>
+        <label>Ubicaci├│n</label>
         <input name="ubicacion" value="${p.ubicacion || ''}" />
 
         <label>Texto</label>
@@ -2555,10 +2468,10 @@ app.get('/editar/:id', (req, res) => {
         <label>Foto modelo (URL o file_id)</label>
         <input name="foto_modelo" value="${p.foto_modelo || ''}" />
 
-        <label>Foto página (URL o file_id)</label>
+        <label>Foto p├ígina (URL o file_id)</label>
         <input name="foto_pagina" value="${p.foto_pagina || ''}" />
 
-        <label>Próximo post</label>
+        <label>Pr├│ximo post</label>
         <input name="proximo_post" value="${p.proximo_post || ''}" />
 
         <label>Fin de plan</label>
@@ -2616,7 +2529,7 @@ app.post('/guardar-perfil', (req, res) => {
   data[id].foto_modelo = foto_modelo || data[id].foto_modelo || 'https://picsum.photos/400/260';
   data[id].foto_pagina = foto_pagina || data[id].foto_pagina || 'https://picsum.photos/420/280';
   data[id].proximo_post = proximo_post || '16m';
-  data[id].fin_plan = convertirFinPlan(fin_plan || '7 días');
+  data[id].fin_plan = convertirFinPlan(fin_plan || '7 d├¡as');
   data[id].ultima_hora = horaActual();
   data[id].ultimaAccion = 'Perfil editado desde panel';
   data[id].ultima_accion = 'Perfil editado desde panel';
@@ -2654,13 +2567,13 @@ app.post('/accion', async (req, res) => {
     const nuevoToken = resetearAccesoPerfil(id);
 
     if (nuevoToken) {
-      await enviarTexto(`🔐 Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
+      await enviarTexto(`≡ƒöÉ Acceso reseteado y perfil limpiado\nPerfil: ${id}\nNueva clave: ${nuevoToken}\nEstado: PAUSADA`);
     }
   } else if (accion === 'limpiaralerta') {
     const ok = limpiarAlertasPerfil(id);
 
     if (ok) {
-      await enviarTexto(`✅ Alerta limpiada\nPerfil: ${id}`);
+      await enviarTexto(`Γ£à Alerta limpiada\nPerfil: ${id}`);
     }
   } else if (accion === 'borrarperfil') {
     cq.respaldoBorrado(id);
@@ -2668,31 +2581,31 @@ app.post('/accion', async (req, res) => {
 
     if (ok) {
       cq.quitarPropietario(id);
-      await enviarTexto(`🗑️ Perfil borrado correctamente\nPerfil eliminado: ${id}`);
+      await enviarTexto(`≡ƒùæ∩╕Å Perfil borrado correctamente\nPerfil eliminado: ${id}`);
     } else {
-      await enviarTexto(`⚠️ No se pudo borrar el perfil ${id}`);
+      await enviarTexto(`ΓÜá∩╕Å No se pudo borrar el perfil ${id}`);
     }
   } else if (accion === 'progpausa') {
     const resultado = programarAccionGlobal('PAUSADA', hora, chatGrupoPerfil || null);
 
     if (resultado.ok) {
       await enviarTexto(
-        `✅ Programado desde panel\nAcción: PAUSAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`,
+        `Γ£à Programado desde panel\nAcci├│n: PAUSAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutar├í: ${resultado.fecha}`,
         chatGrupoPerfil || CHAT_ID
       );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
+      await enviarTexto(`ΓÜá∩╕Å No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
     }
   } else if (accion === 'progreanudar') {
     const resultado = programarAccionGlobal('ACTIVA', hora, chatGrupoPerfil || null);
 
     if (resultado.ok) {
       await enviarTexto(
-        `✅ Programado desde panel\nAcción: REANUDAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutará: ${resultado.fecha}`,
+        `Γ£à Programado desde panel\nAcci├│n: REANUDAR TODAS DEL GRUPO\nChat ID: ${chatGrupoPerfil || 'GLOBAL ADMIN'}\nHora: ${hora}\nSe ejecutar├í: ${resultado.fecha}`,
         chatGrupoPerfil || CHAT_ID
       );
     } else {
-      await enviarTexto(`⚠️ No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
+      await enviarTexto(`ΓÜá∩╕Å No se pudo programar: ${resultado.error}`, chatGrupoPerfil || CHAT_ID);
     }
   } else if (accion === 'ultima') {
     await enviarUltimaActualizacion(id);
@@ -2700,7 +2613,7 @@ app.post('/accion', async (req, res) => {
     await enviarFotoPagina(id);
   } else if (accion === 'reiniciar') {
     cambiarEstadoPerfil(id, 'ACTIVA');
-    await enviarTexto(`🔄 ${data[id].nombre} reiniciado.`);
+    await enviarTexto(`≡ƒöä ${data[id].nombre} reiniciado.`);
     await enviarEstadoPerfil(id);
   }
 
@@ -2732,12 +2645,14 @@ app.post('/accion-global', async (req, res) => {
     return res.sendStatus(400);
   }
 
+  // Estos dos botones de arriba del panel quedan como ADMIN GLOBAL.
+  // Los botones de cada perfil y Telegram trabajan por Chat ID/grupo.
   if (accion === 'pausar_todas') {
     const total = cambiarEstadoTodos('PAUSADA');
-    await enviarTexto(`⏸ Todas las páginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`);
+    await enviarTexto(`ΓÅ╕ Todas las p├íginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`);
   } else if (accion === 'reanudar_todas') {
     reanudarTodasEnCola();
-    await enviarTexto('▶️ Reanudando todas en cola cada 45 segundos.');
+    await enviarTexto('Γû╢∩╕Å Reanudando todas en cola cada 45 segundos.');
   }
 
   res.redirect('/');
@@ -2764,7 +2679,7 @@ async function procesarColaReanudacion(versionActiva) {
   const perfil = data[id];
   const destino = perfil?.chat_id || CHAT_ID;
 
-  await enviarTexto(`▶️ Perfil ${id} reanudado automáticamente en cola.`, destino);
+  await enviarTexto(`Γû╢∩╕Å Perfil ${id} reanudado autom├íticamente en cola.`, destino);
   await enviarEstadoPerfil(id);
 
   if (versionActiva !== colaVersion) return;
@@ -2837,12 +2752,12 @@ app.listen(PORT, process.env.CQ_TEST_MODE === '1' ? '127.0.0.1' : '0.0.0.0', asy
     guardarProgramaciones({ items: [] });
   }
 
-  // CQ_PRINCIPAL_MODO_PRUEBA_V1
-  if (process.env.CQ_TEST_MODE === '1') {
-    console.log('MODO PRUEBA: TELEGRAM NO SE INICIA');
-    return;
-  }
+      // CQ_PRINCIPAL_MODO_PRUEBA_V1
+    if (process.env.CQ_TEST_MODE === '1') {
+      console.log('MODO PRUEBA: TELEGRAM NO SE INICIA');
+      return;
+    }
 
-  await apiTelegram('deleteWebhook', {});
-  cicloPrincipal();
+    await apiTelegram('deleteWebhook', {});
+    cicloPrincipal();
 });
