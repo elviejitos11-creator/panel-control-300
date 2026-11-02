@@ -576,10 +576,10 @@ PANEL PRO
                href="/admin/editar/${encodeURIComponent(id)}">
                Editar
             </a>
-            <form method="post" action="/admin/suspender">
+            <form method="post" action="/admin/eliminar">
               <input type="hidden" name="id" value="${esc(id)}">
               <button class="danger" type="submit">
-                ${u.suspendido ? 'Reactivar' : 'Suspender'}
+                Eliminar
               </button>
             </form>
           </div>
@@ -803,7 +803,27 @@ PANEL PRO
     guardar(usersFile, db);
     res.redirect('/admin');
   });
-  app.post('/admin/suspender', (req, res) => {
+  app.post('/admin/eliminar', (req, res) => {
+  if (!req.cq.admin) return res.sendStatus(403);
+
+  const id = String(req.body.id || '');
+  if (!id || id === 'admin' || !Object.prototype.hasOwnProperty.call(usuarios().items, id)) {
+    return res.sendStatus(404);
+  }
+
+  const db = usuarios();
+  if (!db.items[id]) return res.sendStatus(404);
+
+  const fs = require('fs');
+  const copia = usersFile + '.antes-eliminar-' + Date.now();
+  fs.copyFileSync(usersFile, copia, fs.constants.COPYFILE_EXCL);
+
+  delete db.items[id];
+  guardar(usersFile, db);
+
+  res.redirect('/admin');
+});
+app.post('/admin/suspender', (req, res) => {
     if (!req.cq.admin) return res.sendStatus(403);
 
     const id = String(req.body.id || '');
