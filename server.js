@@ -1,4 +1,5 @@
-/ CQ_DISENO_PRINCIPAL_V2
+
+// CQ_DISENO_PRINCIPAL_V2
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -37,7 +38,7 @@ const STORAGE_DIR = process.env.CQ_DATA_DIR
 fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = 8455991044:AAGqkkUgzrErvtAMihAAg2eA_MS--45DFYw '';
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
@@ -386,10 +387,7 @@ function tiempoRestantePlan(fechaFin) {
 
   if (diff <= 0) return '❌ Vencido';
 
-  // Ceil evita que un plan recién creado de 7 días aparezca
-  // inmediatamente como 6 días, 23h, 59m, 59s.
   const totalSegundos = Math.ceil(diff / 1000);
-
   const dias = Math.floor(totalSegundos / 86400);
   const horas = Math.floor((totalSegundos % 86400) / 3600);
   const minutos = Math.floor((totalSegundos % 3600) / 60);
@@ -428,7 +426,6 @@ function convertirFinPlan(valor) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-  // Si ya es una fecha absoluta guardada, se conserva tal cual.
   if (
     /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}(?:\.\d{3})?z?$/.test(texto) ||
     /^\d{4}-\d{2}-\d{2}$/.test(texto)
@@ -436,12 +433,6 @@ function convertirFinPlan(valor) {
     return valor;
   }
 
-  // Ejemplos aceptados:
-  // 7 días
-  // 2 días 2 horas
-  // 2 días 37 minutos
-  // 2 días 2 horas 37 minutos
-  // 2 días y 2 horas y 37 minutos
   const patron =
     /^(\d+)\s*dias?(?:\s*(?:y\s*)?(\d+)\s*horas?)?(?:\s*(?:y\s*)?(\d+)\s*minutos?)?$/;
 
@@ -536,8 +527,6 @@ function idsPorChatId(chatId) {
 // =========================
 // PROGRAMACIÓN POR HORA
 // =========================
-
-// Hora fija de República Dominicana. Así no depende de la hora rara de Railway.
 const ZONA_RD_OFFSET_MS = -4 * 60 * 60 * 1000;
 
 function pad2(n) {
@@ -601,7 +590,7 @@ function parsearHoraSimple(textoHora) {
   if (Number.isNaN(hora) || Number.isNaN(minuto)) {
     return {
       ok: false,
-      error: 'Hora inválida. Usa ejemplo: HOY 5:00 AM, MAÑANA 5:00 AM, o 09/05 5:00 AM'
+      error: 'Hora inválida.'
     };
   }
 
@@ -616,7 +605,7 @@ function parsearHoraSimple(textoHora) {
     if (hora < 1 || hora > 12) {
       return {
         ok: false,
-        error: 'Hora inválida. Con AM/PM usa 1 a 12. Ejemplo: 5:00 AM'
+        error: 'Hora inválida. Con AM/PM usa 1 a 12.'
       };
     }
 
@@ -626,7 +615,7 @@ function parsearHoraSimple(textoHora) {
     if (hora < 0 || hora > 23) {
       return {
         ok: false,
-        error: 'Hora inválida. Usa formato 24 horas, ejemplo: 17:00, o usa AM/PM'
+        error: 'Hora inválida. Usa formato 24 horas.'
       };
     }
   }
@@ -688,8 +677,6 @@ function calcularHoraProgramada(textoHora) {
       fecha = { ano, mes, dia };
       horaTexto = mFecha[4].trim();
     } else {
-      // Si solo escribes 5:00 AM, se intenta para HOY.
-      // Si esa hora ya pasó, NO se manda para mañana: da error.
       fecha = hoy;
       horaTexto = texto;
     }
@@ -704,7 +691,7 @@ function calcularHoraProgramada(textoHora) {
   if (!fechaValidaRD(fecha.ano, fecha.mes, fecha.dia, hora.hora, hora.minuto)) {
     return {
       ok: false,
-      error: 'Fecha inválida. Usa formato DÍA/MES, ejemplo: 09/05 5:00 AM'
+      error: 'Fecha inválida. Usa formato DÍA/MES.'
     };
   }
 
@@ -713,7 +700,7 @@ function calcularHoraProgramada(textoHora) {
   if (ejecutarEn <= Date.now()) {
     return {
       ok: false,
-      error: 'Esa hora ya pasó en República Dominicana. Escribe HOY si es hoy, MAÑANA si es mañana, o pon fecha: 09/05 5:00 AM'
+      error: 'Esa hora ya pasó en República Dominicana.'
     };
   }
 
@@ -1123,26 +1110,22 @@ function resetearAccesoPerfil(id) {
   data[id].cliente_token = nuevoToken;
   data[id].estado = 'PAUSADA';
 
-  // LIMPIEZA COMPLETA PARA CLIENTE NUEVO
   data[id].telefono = '';
   data[id].codigo = '';
   data[id].ubicacion = '';
   data[id].texto = '';
 
-  // BORRAR FOTOS VIEJAS
   data[id].foto_modelo = 'https://picsum.photos/400/260';
   data[id].foto_pagina = 'https://picsum.photos/420/280';
   data[id].foto_bump = '';
   data[id].historial_fotos = [];
 
-  // RESETEAR CONTADORES
   data[id].bump_hoy = 0;
   data[id].bump_total = 0;
   data[id].bump_fecha = '';
   data[id].proximo_post = '16m';
   data[id].proximo_post_ts = null;
 
-  // LIMPIAR ALERTAS Y EVENTOS
   data[id].ultimo_evento = null;
   data[id].ultima_alerta = '';
   data[id].ultima_alerta_tipo = '';
@@ -1567,6 +1550,110 @@ app.get('/api/estado/:id', (req, res) => {
   }
 });
 
+// =========================
+// CQ BOTON MANUAL ON/OFF V1
+// NUEVA RUTA INDEPENDIENTE
+// =========================
+app.post('/registrar-estado-manual', async (req, res) => {
+  try {
+    const id = String(req.body?.id || '').trim();
+    const estado = String(req.body?.estado || '')
+      .trim()
+      .toUpperCase();
+
+    if (!id || !['ON', 'OFF'].includes(estado)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'ID o estado manual inválido'
+      });
+    }
+
+    const data = leerData();
+
+    if (!Object.prototype.hasOwnProperty.call(data, id)) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Perfil no encontrado'
+      });
+    }
+
+    const perfil = data[id];
+
+    // No modificar credenciales ni generar tokens.
+    // Solo perfiles con token pueden reportar
+    // directamente desde Tampermonkey.
+    if (
+      !perfil.cliente_token ||
+      !tokenValidoParaPerfil(req, perfil)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Token inválido o no configurado'
+      });
+    }
+
+    // No permitir encendido de perfiles bloqueados.
+    if (
+      estado === 'ON' &&
+      (perfil.estado !== 'ACTIVA' || planVencido(perfil))
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Perfil pausado o plan vencido'
+      });
+    }
+
+    // El estado manual es independiente de
+    // ACTIVA / PAUSADA y de la licencia.
+    const hora = horaActual();
+
+    perfil.estado_manual = estado;
+    perfil.estado_manual_hora = hora;
+
+    const guardado = guardarData(data);
+
+    if (!guardado) {
+      return res.status(500).json({
+        ok: false,
+        error: 'No se pudo guardar estado manual'
+      });
+    }
+
+    let telegramEnviado = false;
+    const destino = perfil.chat_id || CHAT_ID;
+
+    if (destino && BOT_TOKEN) {
+      const mensaje = `${estado === 'ON' ? '🟢' : '🔴'} MOTOR MANUAL ${estado}
+
+Perfil: ${perfil.nombre || id}
+ID: ${id}
+Estado manual: ${estado}
+Hora: ${hora}`;
+
+      const respuesta = await enviarTexto(mensaje, destino);
+      telegramEnviado = !!respuesta?.ok;
+    }
+
+    return res.json({
+      ok: true,
+      id,
+      estado_manual: estado,
+      hora,
+      telegram_enviado: telegramEnviado
+    });
+  } catch (error) {
+    console.error(
+      'Error en /registrar-estado-manual:',
+      error?.message || error
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error: 'Error registrando estado manual'
+    });
+  }
+});
+
 app.post('/registrar-alerta', async (req, res) => {
   try {
     const {
@@ -1708,11 +1795,7 @@ app.post('/registrar-evento', async (req, res) => {
     }
   }
 
-  // IMPORTANTE:
-  // EL POST NO RENUEVA NI REINICIA EL PLAN.
-  // fin_plan solamente se establece o renueva desde /guardar-perfil.
-  // Así el vencimiento queda fijo y sigue bajando hasta llegar a cero.
-
+  // El post NO renueva ni reinicia el plan.
   perfil.ultima_hora = ultima_hora || horaActual();
   perfil.ultima_accion = ultima_accion || tipoNormal;
   perfil.ultimo_evento = { tipo: tipoNormal, hora: perfil.ultima_hora };
@@ -1984,10 +2067,11 @@ Se ejecutará:
 ${resultado.fecha}
 
 ${resumenProgramacionesTelegram(chatProgramacion)}`,
-              chatId
-            );
+                chatId
+              );
 
-            continue;
+              continue;
+            }
           }
 
           if (/^P\d+$/.test(texto)) {
@@ -2151,6 +2235,8 @@ Reanudando en cola cada 45 segundos.`,
 }
 
 // =========================
+// PANEL MULTICLIENTE
+// =========================
 const cq = require('./cq_multicliente')(app, {
   leerData,
   borrarPerfil
@@ -2240,6 +2326,7 @@ app.get('/', (req, res) => {
         <div class="row">🆔 Código: ${p.codigo || 'N/A'}</div>
         <div class="row">📍 ${p.ubicacion || 'N/A'}</div>
         <div class="row estado">🟢 ${p.estado}</div>
+        <div class="row">🔘 Motor manual: ${p.estado_manual || 'SIN REPORTE'}</div>
         <div class="row">🕒 ${p.ultima_hora}</div>
         <div class="row">⏱ Próximo bump: ${p.proximo_post_ts ? tiempoRestante(p.proximo_post_ts) : (p.proximo_post || 'N/A')}</div>
         <div class="row">📅 ${tiempoRestantePlan(p.fin_plan)}</div>
@@ -2645,8 +2732,6 @@ app.post('/accion-global', async (req, res) => {
     return res.sendStatus(400);
   }
 
-  // Estos dos botones de arriba del panel quedan como ADMIN GLOBAL.
-  // Los botones de cada perfil y Telegram trabajan por Chat ID/grupo.
   if (accion === 'pausar_todas') {
     const total = cambiarEstadoTodos('PAUSADA');
     await enviarTexto(`⏸ Todas las páginas quedaron en PAUSADA. Total: ${total}. Cola cancelada.`);
@@ -2752,12 +2837,12 @@ app.listen(PORT, process.env.CQ_TEST_MODE === '1' ? '127.0.0.1' : '0.0.0.0', asy
     guardarProgramaciones({ items: [] });
   }
 
-      // CQ_PRINCIPAL_MODO_PRUEBA_V1
-    if (process.env.CQ_TEST_MODE === '1') {
-      console.log('MODO PRUEBA: TELEGRAM NO SE INICIA');
-      return;
-    }
+  // CQ_PRINCIPAL_MODO_PRUEBA_V1
+  if (process.env.CQ_TEST_MODE === '1') {
+    console.log('MODO PRUEBA: TELEGRAM NO SE INICIA');
+    return;
+  }
 
-    await apiTelegram('deleteWebhook', {});
-    cicloPrincipal();
+  await apiTelegram('deleteWebhook', {});
+  cicloPrincipal();
 });
