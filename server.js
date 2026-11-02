@@ -2519,7 +2519,7 @@ app.post('/guardar-perfil', (req, res) => {
   data[id].cliente_token = String(
     cliente_token ||
     data[id].cliente_token ||
-    (nuevoPerfil ? generarTokenAcceso() : '')
+    ''
   ).trim();
   data[id].telefono = telefono || '';
   data[id].codigo = codigo || '';
