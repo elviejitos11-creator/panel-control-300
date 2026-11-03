@@ -1,4 +1,4 @@
-/ CQ_DISENO_PRINCIPAL_V2
+// CQ_DISENO_PRINCIPAL_V2
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
