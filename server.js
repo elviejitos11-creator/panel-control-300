@@ -1376,21 +1376,23 @@ async function enviarUltimaActualizacion(id) {
     ? `\n🚨 Última alerta: ${perfil.ultima_alerta}\n🕒 Hora alerta: ${perfil.ultima_alerta_hora || 'N/A'}`
     : '';
 
-  const caption = `🔥 ÚLTIMO BUMP
-🐺 Los lobos del sistema te desean mucho éxito
-💰 Que esta publicación te genere mucho dinero
-🚀 Y que la próxima te deje aún más ganancias
-📄 Información:
-📞 Número: ${perfil.telefono}
-🆔 Código: ${perfil.codigo}
-📍 Ubicación: ${perfil.ubicacion}
-📝 Texto: ${textoLimpio || 'N/A'}
-🟢 Estado: ${perfil.estado}
-🕒 Hora del bump: ${perfil.ultima_hora}
-⏱ Tiempo para próximo bump: ${tiempoProximoPost(perfil)}
-📅 Tiempo para acabar plan: ${tiempoRestantePlan(perfil.fin_plan)}
-📊 Bump hoy: ${perfil.bump_hoy || 0}
-📈 Bump total: ${perfil.bump_total || 0}${alerta}`;
+  const caption = `\u{1F43A} ULTIMO BUMP \u{1F680}
+
+\u{2705} Publicacion actualizada
+
+\u{1F4DE} Numero: ${perfil.telefono}
+\u{1F194} Codigo: ${perfil.codigo}
+\u{1F4CD} Ubicacion: ${perfil.ubicacion}
+
+\u{1F4DD} Texto:
+${textoLimpio || 'N/A'}
+
+\u{1F7E2} Estado: ${perfil.estado}
+\u{1F552} Hora: ${perfil.ultima_hora}
+\u{23F1} Proximo bump: ${tiempoProximoPost(perfil)}
+\u{1F4C5} Plan: ${tiempoRestantePlan(perfil.fin_plan)}
+\u{1F4CA} Bump hoy: ${perfil.bump_hoy || 0}
+\u{1F4C8} Bump total: ${perfil.bump_total || 0}${alerta}`;
 
   if (perfil.foto_bump) {
     const ok = await enviarFotoFlexible(perfil.foto_bump, caption, id);
