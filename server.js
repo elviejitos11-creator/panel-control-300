@@ -2151,6 +2151,62 @@ Reanudando en cola cada 45 segundos.`,
 }
 
 // =========================
+// CQ_ONOFF_SEGURO_V5
+app.options('/api/control-manual/:id', (req, res) => {
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Cliente-Token');
+  return res.sendStatus(204);
+});
+
+app.post('/api/control-manual/:id', (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const accion = String(req.body?.accion || '').trim().toLowerCase();
+    const data = leerData();
+    const perfil = data[id];
+    const token = tokenDesdeRequest(req);
+
+    if (!perfil) {
+      return res.status(404).json({ok:false,estado:'NO_EXISTE'});
+    }
+
+    if (!['pausar','reanudar'].includes(accion)) {
+      return res.status(400).json({ok:false,error:'Accion invalida'});
+    }
+
+    if (!token || !perfil.cliente_token ||
+        !tokenValidoParaPerfil(req, perfil)) {
+      return res.status(403).json({ok:false,estado:'TOKEN_INVALIDO'});
+    }
+
+    if (accion === 'reanudar' && planVencido(perfil)) {
+      return res.status(403).json({ok:false,estado:'VENCIDA'});
+    }
+
+    if (accion === 'reanudar' && perfil.ultima_alerta) {
+      return res.status(409).json({
+        ok:false,
+        estado:'PAUSADA',
+        motivo:'Alerta pendiente'
+      });
+    }
+
+    const estado = accion === 'reanudar' ? 'ACTIVA' : 'PAUSADA';
+
+    if (!cambiarEstadoPerfil(id, estado)) {
+      return res.status(500).json({
+        ok:false,
+        error:'No se pudo guardar'
+      });
+    }
+
+    return res.json({ok:true,id,estado});
+  } catch (e) {
+    console.error('Error ONOFF manual:',e.message);
+    return res.status(500).json({ok:false,error:'Error interno'});
+  }
+});
+
 const cq = require('./cq_multicliente')(app, {
   leerData,
   borrarPerfil
