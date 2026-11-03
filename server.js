@@ -2151,88 +2151,183 @@ Reanudando en cola cada 45 segundos.`,
 }
 
 // =========================
-// CQ_SCREEN_ONOFF_FINAL_V1
-// Recepcion del boton manual. El panel original sigue intacto.
-app.options('/accion', (req, res) => {
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+// CQ_SCREEN_ONOFF_FINAL_V2
+// Boton manual con autorizacion individual y CORS controlado.
+
+function cqOrigenManual(req, res) {
+  const origen = String(req.get('origin') || '');
+
+  if (!origen) return true;
+
+  let permitido = false;
+
+  try {
+    const url = new URL(origen);
+    const host = url.hostname.toLowerCase();
+
+    permitido =
+      url.protocol === 'https:' &&
+      (
+        host === 'megapersonals.eu' ||
+        host.endsWith('.megapersonals.eu')
+      );
+  } catch (e) {
+    permitido = false;
+  }
+
+  if (!permitido) return false;
+
+  res.set('Access-Control-Allow-Origin', origen);
+  res.vary('Origin');
   res.set(
     'Access-Control-Allow-Headers',
     'Content-Type, X-Cliente-Token, X-CQ-Screen-Key'
   );
+  res.set(
+    'Access-Control-Allow-Methods',
+    'POST, OPTIONS'
+  );
+
+  return true;
+}
+
+app.options('/accion', (req, res) => {
+  if (!cqOrigenManual(req, res)) {
+    return res.sendStatus(403);
+  }
+
   return res.sendStatus(204);
 });
 
 app.post('/accion', (req, res, next) => {
-  const id = String(req.body?.id || '').trim();
-  const accion = String(req.body?.accion || '').trim().toLowerCase();
+  if (!cqOrigenManual(req, res)) {
+    return res.status(403).json({
+      ok: false,
+      error: 'ORIGEN_NO_AUTORIZADO'
+    });
+  }
 
-  const token = tokenDesdeRequest(req);
-  const claveControl = String(
-    req.headers['x-cq-screen-key'] || ''
+  const id = String(req.body?.id || '').trim();
+  const accion = String(
+    req.body?.accion || ''
+  ).trim().toLowerCase();
+
+  const token = String(
+    req.get('x-cliente-token') ||
+    req.body?.token ||
+    tokenDesdeRequest(req) ||
+    ''
   ).trim();
 
-  // Las ordenes originales del panel siguen su camino.
-  if (!token && !claveControl) return next();
-  if (!['pausar', 'reanudar'].includes(accion)) return next();
+  const claveControl = String(
+    req.get('x-cq-screen-key') || ''
+  ).trim();
+
+  // Mantener las acciones originales del panel web.
+  if (!token && !claveControl) {
+    return next();
+  }
+
+  if (!['pausar', 'reanudar'].includes(accion)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'ACCION_INVALIDA'
+    });
+  }
 
   const data = leerData();
-  const perfil = Object.prototype.hasOwnProperty.call(data, id)
-    ? data[id]
-    : null;
+
+  const perfil = Object.prototype.hasOwnProperty.call(
+    data, id
+  ) ? data[id] : null;
 
   if (!perfil) {
     return res.status(404).json({
       ok: false,
-      estado: 'NO_EXISTE'
+      error: 'PERFIL_NO_EXISTE'
     });
   }
 
-  // Clave del perfil, cuando existe.
-  const autorizadoPorPerfil =
-    !!perfil.cliente_token &&
-    !!token &&
-    token === String(perfil.cliente_token).trim();
+  const cryptoManual = require('crypto');
 
-  // Autorizacion independiente para perfiles SIN CLAVE.
+  function coincide(a, b) {
+    if (!a || !b) return false;
+
+    const x = Buffer.from(String(a));
+    const y = Buffer.from(String(b));
+
+    return (
+      x.length === y.length &&
+      cryptoManual.timingSafeEqual(x, y)
+    );
+  }
+
+  const tokenPerfil = String(
+    perfil.cliente_token || ''
+  ).trim();
+
   const claveServidor = String(
     process.env.CQ_SCREEN_CONTROL_KEY || ''
   ).trim();
 
-  const autorizadoPorControl =
-    !!claveServidor &&
-    !!claveControl &&
-    claveControl === claveServidor;
+  const autorizadoPorPerfil = coincide(
+    token, tokenPerfil
+  );
+
+  const autorizadoPorControl = coincide(
+    claveControl, claveServidor
+  );
 
   if (!autorizadoPorPerfil && !autorizadoPorControl) {
     return res.status(403).json({
       ok: false,
-      error: 'ORDEN_NO_AUTORIZADA'
+      error: tokenPerfil
+        ? 'TOKEN_NO_COINCIDE'
+        : 'PERFIL_SIN_TOKEN'
     });
   }
 
   if (accion === 'reanudar' && planVencido(perfil)) {
     return res.status(403).json({
       ok: false,
-      estado: 'VENCIDA'
+      error: 'LICENCIA_VENCIDA'
     });
   }
 
-  const estado = accion === 'pausar' ? 'PAUSADA' : 'ACTIVA';
+  const estado = accion === 'pausar'
+    ? 'PAUSADA'
+    : 'ACTIVA';
 
-  if (!cambiarEstadoPerfil(id, estado)) {
+  try {
+    cambiarEstadoPerfil(id, estado);
+
+    const actual = leerData()[id];
+
+    if (
+      !actual ||
+      String(actual.estado || '').toUpperCase() !== estado
+    ) {
+      return res.status(500).json({
+        ok: false,
+        error: 'ESTADO_NO_GUARDADO'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      id,
+      estado
+    });
+
+  } catch (error) {
+    console.error('CQ ONOFF:', error);
+
     return res.status(500).json({
       ok: false,
-      error: 'NO_SE_PUDO_GUARDAR'
+      error: 'ERROR_GUARDANDO_ESTADO'
     });
   }
-
-  return res.json({
-    ok: true,
-    id,
-    estado
-  });
 });
-
 const cq = require('./cq_multicliente')(app, {
   leerData,
   borrarPerfil
