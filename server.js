@@ -2209,6 +2209,87 @@ app.post('/api/control-manual/:id', (req, res) => {
   }
 });
 
+// CQ_RECEPCION_SCREEN_V6
+// Recibe ON/OFF autenticado antes de la proteccion web.
+// Las ordenes normales del panel continuan por su ruta original.
+app.post('/accion', async (req, res, next) => {
+  const id = String(req.body?.id || '').trim();
+  const accion = String(req.body?.accion || '').trim().toLowerCase();
+
+  const token = tokenDesdeRequest(req);
+  const claveScreen = String(
+    req.headers['x-cq-screen-key'] || ''
+  ).trim();
+
+  // Las peticiones normales del panel no se modifican.
+  if (!token && !claveScreen) return next();
+
+  if (!['pausar', 'reanudar'].includes(accion)) {
+    return next();
+  }
+
+  const data = leerData();
+  const perfil = data[id];
+
+  if (!perfil) {
+    return res.status(404).json({
+      ok: false,
+      estado: 'NO_EXISTE'
+    });
+  }
+
+  // Autorizacion independiente del modo SIN CLAVE.
+  const claveServidor = String(
+    process.env.CQ_SCREEN_CONTROL_KEY || ''
+  ).trim();
+
+  const autorizadoPorScreen =
+    !!claveServidor &&
+    !!claveScreen &&
+    claveScreen === claveServidor;
+
+  const autorizadoPorToken =
+    !!perfil.cliente_token &&
+    !!token &&
+    tokenValidoParaPerfil(req, perfil);
+
+  if (!autorizadoPorScreen && !autorizadoPorToken) {
+    return res.status(403).json({
+      ok: false,
+      error: 'ORDEN_NO_AUTORIZADA'
+    });
+  }
+
+  if (accion === 'reanudar' && planVencido(perfil)) {
+    return res.status(403).json({
+      ok: false,
+      estado: 'VENCIDA'
+    });
+  }
+
+  const estado = accion === 'pausar' ? 'PAUSADA' : 'ACTIVA';
+
+  const guardado = cambiarEstadoPerfil(id, estado);
+
+  if (!guardado) {
+    return res.status(500).json({
+      ok: false,
+      error: 'NO_SE_PUDO_GUARDAR'
+    });
+  }
+
+  // La respuesta no depende de que Telegram este disponible.
+  res.json({
+    ok: true,
+    id,
+    estado
+  });
+
+  Promise.resolve(enviarEstadoPerfil(id)).catch(error => {
+    console.log('Aviso Telegram ON/OFF:', error.message);
+  });
+});
+
 const cq = require('./cq_multicliente')(app, {
   leerData,
   borrarPerfil
