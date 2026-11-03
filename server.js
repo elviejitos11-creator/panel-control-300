@@ -37,7 +37,7 @@ const STORAGE_DIR = process.env.CQ_DATA_DIR
 fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 // CAMBIA ESTAS 4 COSAS
-const BOT_TOKEN = '';
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const CHAT_ID = '';
 const SUPPORT_URL = 'https://wa.me/18097760519';
 const RULES_TEXT = `📜 Reglas del sistema
