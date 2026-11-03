@@ -884,37 +884,36 @@ function tecladoTelegram(id) {
   return {
     inline_keyboard: [
       [
-        { text: '⏸ Pausar', callback_data: `pausar_${id}` },
-        { text: '▶️ Reanudar', callback_data: `reanudar_${id}` }
+        { text: '\u23F8 Pausar', callback_data: `pausar_${id}` },
+        { text: '\u25B6\uFE0F Reanudar', callback_data: `reanudar_${id}` }
       ],
       [
-        { text: '⏸ Pausar todas', callback_data: 'pausar_todas' },
-        { text: '▶️ Reanudar todas', callback_data: 'reanudar_todas' }
+        { text: '\u23F8 Pausar todas', callback_data: 'pausar_todas' },
+        { text: '\u25B6\uFE0F Reanudar todas', callback_data: 'reanudar_todas' }
       ],
       [
-        { text: '⏰ Programar pausa', callback_data: `progpausa_${id}` },
-        { text: '⏰ Programar reanudar', callback_data: `progreanudar_${id}` }
+        { text: '\u23F0 Programar pausa', callback_data: `progpausa_${id}` },
+        { text: '\u23F0 Programar reanudar', callback_data: `progreanudar_${id}` }
       ],
       [
-        { text: '🕒 Último bump', callback_data: `ultima_${id}` }
+        { text: '\uD83D\uDD52 Ultimo bump', callback_data: `ultima_${id}` }
       ],
       [
-        { text: '🔄 Reiniciar bot', callback_data: `reiniciar_${id}` }
+        { text: '\uD83D\uDD04 Reiniciar bot', callback_data: `reiniciar_${id}` }
       ],
       [
-        { text: '📞 Contactar', url: SUPPORT_URL },
-        { text: '📜 Ver reglas', callback_data: 'reglas' }
+        { text: '\uD83D\uDCDE Contactar', url: SUPPORT_URL },
+        { text: '\uD83D\uDCDC Ver reglas', callback_data: 'reglas' }
       ],
       [
-        { text: '📸 Ver una foto', callback_data: `foto_${id}` }
+        { text: '\uD83D\uDCF8 Ver una foto', callback_data: `foto_${id}` }
       ],
       [
-        { text: '🗂 Ver álbum completo', callback_data: `album_${id}` }
+        { text: '\uD83D\uDDC2 Ver album completo', callback_data: `album_${id}` }
       ]
     ]
   };
 }
-
 async function apiTelegram(method, payload) {
   try {
     const res = await axios.post(
