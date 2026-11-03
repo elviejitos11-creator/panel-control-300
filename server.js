@@ -2157,32 +2157,57 @@ Reanudando en cola cada 45 segundos.`,
 function cqOrigenManual(req, res) {
   const origen = String(req.get('origin') || '');
 
+  // Peticiones sin Origin: continúan con sus controles normales.
   if (!origen) return true;
 
-  let permitido = false;
+  let url;
 
   try {
-    const url = new URL(origen);
-    const host = url.hostname.toLowerCase();
-
-    permitido =
-      url.protocol === 'https:' &&
-      (
-        host === 'megapersonals.eu' ||
-        host.endsWith('.megapersonals.eu')
-      );
+    url = new URL(origen);
   } catch (e) {
-    permitido = false;
+    return false;
   }
 
-  if (!permitido) return false;
+  const host = String(req.get('host') || '').toLowerCase();
+  const hostOrigen = url.host.toLowerCase();
+  const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
+
+  // CORRECCION:
+  // El panel web debe poder ejecutar sus propios botones.
+  // Se conserva la autenticacion multicliente.
+  const mismoPanel =
+    hostOrigen === host &&
+    (
+      url.protocol === 'https:' ||
+      (local && url.protocol === 'http:')
+    );
+
+  if (mismoPanel) {
+    return true;
+  }
+
+  // El script de Mega mantiene su comunicación autorizada.
+  const nombre = url.hostname.toLowerCase();
+
+  const esMega =
+    url.protocol === 'https:' &&
+    (
+      nombre === 'megapersonals.eu' ||
+      nombre.endsWith('.megapersonals.eu')
+    );
+
+  if (!esMega) {
+    return false;
+  }
 
   res.set('Access-Control-Allow-Origin', origen);
   res.vary('Origin');
+
   res.set(
     'Access-Control-Allow-Headers',
     'Content-Type, X-Cliente-Token, X-CQ-Screen-Key'
   );
+
   res.set(
     'Access-Control-Allow-Methods',
     'POST, OPTIONS'
@@ -2190,7 +2215,6 @@ function cqOrigenManual(req, res) {
 
   return true;
 }
-
 app.options('/accion', (req, res) => {
   if (!cqOrigenManual(req, res)) {
     return res.sendStatus(403);
