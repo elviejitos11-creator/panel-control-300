@@ -2151,6 +2151,88 @@ Reanudando en cola cada 45 segundos.`,
 }
 
 // =========================
+// CQ_SCREEN_ONOFF_FINAL_V1
+// Recepcion del boton manual. El panel original sigue intacto.
+app.options('/accion', (req, res) => {
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-Cliente-Token, X-CQ-Screen-Key'
+  );
+  return res.sendStatus(204);
+});
+
+app.post('/accion', (req, res, next) => {
+  const id = String(req.body?.id || '').trim();
+  const accion = String(req.body?.accion || '').trim().toLowerCase();
+
+  const token = tokenDesdeRequest(req);
+  const claveControl = String(
+    req.headers['x-cq-screen-key'] || ''
+  ).trim();
+
+  // Las ordenes originales del panel siguen su camino.
+  if (!token && !claveControl) return next();
+  if (!['pausar', 'reanudar'].includes(accion)) return next();
+
+  const data = leerData();
+  const perfil = Object.prototype.hasOwnProperty.call(data, id)
+    ? data[id]
+    : null;
+
+  if (!perfil) {
+    return res.status(404).json({
+      ok: false,
+      estado: 'NO_EXISTE'
+    });
+  }
+
+  // Clave del perfil, cuando existe.
+  const autorizadoPorPerfil =
+    !!perfil.cliente_token &&
+    !!token &&
+    token === String(perfil.cliente_token).trim();
+
+  // Autorizacion independiente para perfiles SIN CLAVE.
+  const claveServidor = String(
+    process.env.CQ_SCREEN_CONTROL_KEY || ''
+  ).trim();
+
+  const autorizadoPorControl =
+    !!claveServidor &&
+    !!claveControl &&
+    claveControl === claveServidor;
+
+  if (!autorizadoPorPerfil && !autorizadoPorControl) {
+    return res.status(403).json({
+      ok: false,
+      error: 'ORDEN_NO_AUTORIZADA'
+    });
+  }
+
+  if (accion === 'reanudar' && planVencido(perfil)) {
+    return res.status(403).json({
+      ok: false,
+      estado: 'VENCIDA'
+    });
+  }
+
+  const estado = accion === 'pausar' ? 'PAUSADA' : 'ACTIVA';
+
+  if (!cambiarEstadoPerfil(id, estado)) {
+    return res.status(500).json({
+      ok: false,
+      error: 'NO_SE_PUDO_GUARDAR'
+    });
+  }
+
+  return res.json({
+    ok: true,
+    id,
+    estado
+  });
+});
+
 const cq = require('./cq_multicliente')(app, {
   leerData,
   borrarPerfil
