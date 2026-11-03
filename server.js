@@ -2270,9 +2270,9 @@ app.post('/accion', (req, res, next) => {
     process.env.CQ_SCREEN_CONTROL_KEY || ''
   ).trim();
 
-  const autorizadoPorPerfil = coincide(
-    token, tokenPerfil
-  );
+  const autorizadoPorPerfil =
+    Boolean(token) &&
+    tokenValidoParaPerfil(req, perfil);
 
   const autorizadoPorControl = coincide(
     claveControl, claveServidor
