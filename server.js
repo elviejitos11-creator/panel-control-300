@@ -384,7 +384,7 @@ function tiempoRestantePlan(fechaFin) {
 
   const diff = fin.getTime() - Date.now();
 
-  if (diff <= 0) return '❌ Vencido';
+  if (diff < 86400000) return '❌ Vencido';
 
   // Ceil evita que un plan recién creado de 7 días aparezca
   // inmediatamente como 6 días, 23h, 59m, 59s.
@@ -398,14 +398,20 @@ function tiempoRestantePlan(fechaFin) {
   return `${dias} días, ${horas}h ${minutos}m ${segundos}s`;
 }
 
+/* CQ_VENCIMIENTO_CERO_DIAS_V1 */
 function planVencido(perfil) {
   if (!perfil || !perfil.fin_plan) return false;
 
-  const fin = new Date(perfil.fin_plan);
+  const texto = String(perfil.fin_plan).trim();
+  const normal = texto.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
+  if (/^0\s*dias?\b/i.test(normal)) return true;
+
+  const fin = new Date(perfil.fin_plan);
   if (isNaN(fin.getTime())) return false;
 
-  return fin <= new Date();
+  return fin.getTime() - Date.now() < 86400000;
 }
 
 function puedeContarBump(perfil) {
@@ -1065,6 +1071,10 @@ function cambiarEstadoPerfil(id, estado) {
 
   asegurarPerfil(data, id);
 
+  if (estado === 'ACTIVA' && planVencido(data[id])) {
+    return false;
+  }
+
   if (estado === 'PAUSADA' && Array.isArray(colaReanudacion)) {
     colaReanudacion = colaReanudacion.filter(x => String(x) !== String(id));
   }
@@ -1086,6 +1096,11 @@ function cambiarEstadoTodos(estado, chatId = null) {
 
   for (const id of ids) {
     asegurarPerfil(data, id);
+
+    if (estado === 'ACTIVA' && planVencido(data[id])) {
+      continue;
+    }
+
     data[id].estado = estado;
     data[id].ultima_hora = horaActual();
     data[id].ultima_accion =
@@ -2717,11 +2732,10 @@ app.post('/guardar-perfil', (req, res) => {
 
   data[id].nombre = nombre || `Perfil ${id}`;
   data[id].chat_id = chat_id || '';
-  data[id].cliente_token = String(
-    cliente_token ||
-    data[id].cliente_token ||
-    ''
-  ).trim();
+  data[id].cliente_token =
+    Object.prototype.hasOwnProperty.call(req.body, 'cliente_token')
+      ? String(cliente_token ?? '').trim()
+      : String(data[id].cliente_token ?? '').trim();
   data[id].telefono = telefono || '';
   data[id].codigo = codigo || '';
   data[id].ubicacion = ubicacion || '';
